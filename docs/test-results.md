@@ -32,8 +32,24 @@ The script ([app/scripts/test-matching.ts](../app/scripts/test-matching.ts)) sen
 
 Not covered by this run:
 - The late-night violation paths (`no_leave` after 20:00, `late_return` after 22:30). The test computes the expected violation from the clock, so only the "no violation" branch was exercised at midday. Those rules are exercised by `db/transactions_demo.sql` scenario A (a 23:05 exit raises `no_leave`).
-- Real faces. All inputs are synthetic, so these results prove the pipeline and the rules, not the model's accuracy. The reported cosine problem (a different person at about 0.90) was observed on real faces and has not been re-measured with Euclid.
+- The automated run above uses synthetic inputs only: it proves the pipeline and the rules, not the model's accuracy. Real-face results are in the next section.
 - A Qdrant outage in the middle of enrolment (the rollback and cleanup path was written but not fault-injected).
+
+## Real-face test
+
+Setup: browser webcam on a MacBook, `@vladmandic/face-api` 128-d descriptors, two people enrolled (the author as Arun Kumar and a friend as Karthik R, 8 samples each), plus one unenrolled face.
+
+| Case | Expected | Actual |
+|---|---|---|
+| Before the switch (cosine similarity, thresholds 0.85 / 0.70): friend scanned | not matched as Arun Kumar | scored about 0.90 against Arun Kumar and was auto-matched (wrong) |
+| Before the switch: author's own face | matched as Arun Kumar | scored up to 0.992 |
+| After the switch (Euclidean distance, thresholds 0.45 / 0.60): author's face | matched as Arun Kumar | matched Arun Kumar at distance 0.222 |
+| After the switch: friend's face | matched as Karthik R | matched Karthik R at distance 0.252; the recent scans list showed each person recognised as themselves, no mix-ups |
+| After the switch: unenrolled face | no_match | no_match at distance 0.721 (three no_match scans in a row) |
+
+Limits:
+- Very small sample: two enrolled people, one unenrolled face, a handful of scans each, one camera and one room. The thresholds 0.45 and 0.60 are validated only on that sample and should be re-checked with more people and different lighting before real use.
+- The warden confirm/reject buttons and the roll-call scan were not hand-tested with a camera.
 
 ## Pages and review API (checked with curl against `next dev`)
 
