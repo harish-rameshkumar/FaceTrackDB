@@ -1,7 +1,7 @@
 Hi Harshit, here is where my side stands and what I need from you. Everything is on branch `b/vector-and-queries`; I did not edit any of your files.
 
 **What I built**
-- Qdrant collection `face_embeddings` (128-d, cosine), enrolment API (`/api/faces/enrol`, delete), matching API (`/api/faces/match`) that writes `face_events` and calls `mark_attendance` / `record_entry_exit` in one transaction, review API for low-confidence events.
+- Qdrant collection `face_embeddings` (128-d, Euclidean distance), enrolment API (`/api/faces/enrol`, delete), matching API (`/api/faces/match`) that writes `face_events` and calls `mark_attendance` / `record_entry_exit` in one transaction, review API for low-confidence events.
 - Pages: `/enrol`, `/gate`, `/warden/review`, a landing page.
 - SQL in new files only: `db/b_queries.sql` (4 views, CTEs, window functions), `db/b_search.sql` (full-text search), `db/b_explain_demo.sql`, `db/load_b.sh`.
 - `app/lib/db.ts` (one shared pg pool, Asia/Kolkata session timezone, TIMESTAMP/DATE returned as strings), `.mailmap`, localhost-only ports, Qdrant API key.
@@ -20,7 +20,7 @@ Hi Harshit, here is where my side stands and what I need from you. Everything is
 **What I assumed about your work**
 - Procedure signatures exactly as in `db/procedures.sql`: `CALL mark_attendance(student, session, event, NULL)`, `CALL record_entry_exit(student, gate, event, 'IN'|'OUT', NULL, NULL)`. Error codes FT001-FT040 as in `phase3-logic.md`; I map them to fixed JSON messages.
 - A `matched` event is the only kind that touches attendance or the gate log; `low_confidence` and `no_match` only create a `face_events` row.
-- `face_events.confidence` is the cosine score clamped to 0..1.
+- `face_events.confidence` is `max(0, 1 - distance)` (Euclidean distance), so it stays in your 0..1 CHECK.
 
 **Changes my SQL makes to your tables (in `db/b_search.sql`)**
 ```sql
