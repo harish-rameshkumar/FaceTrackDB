@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { COLLECTION, getQdrant } from "./qdrant";
-import { toUnitVector } from "./vectors";
+import { toDescriptor } from "./vectors";
 
 export class FaceError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -22,11 +22,11 @@ export interface EnrolledProfile {
  * orphans.
  */
 export async function enrolDescriptors(studentId: number, descriptors: unknown[]): Promise<EnrolledProfile[]> {
-  const vectors = descriptors.map(toUnitVector);
+  const vectors = descriptors.map(toDescriptor);
   if (vectors.some((v) => v === null)) {
     throw new FaceError(400, "Every descriptor must be an array of 128 finite numbers");
   }
-  const unit = vectors as number[][];
+  const raw = vectors as number[][];
 
   const client = await getPool().connect();
   const created: EnrolledProfile[] = [];
@@ -36,7 +36,7 @@ export async function enrolDescriptors(studentId: number, descriptors: unknown[]
     const student = await client.query("SELECT 1 FROM students WHERE student_id = $1", [studentId]);
     if (student.rowCount === 0) throw new FaceError(404, "Student not found");
 
-    for (let i = 0; i < unit.length; i++) {
+    for (let i = 0; i < raw.length; i++) {
       const pointId = randomUUID();
       const { rows } = await client.query<{ profile_id: number }>(
         "INSERT INTO face_profiles (student_id, qdrant_point_id) VALUES ($1, $2) RETURNING profile_id",
@@ -49,7 +49,7 @@ export async function enrolDescriptors(studentId: number, descriptors: unknown[]
       wait: true,
       points: created.map((p, i) => ({
         id: p.qdrantPointId,
-        vector: unit[i],
+        vector: raw[i],
         payload: { student_id: studentId, face_profile_id: p.faceProfileId },
       })),
     });

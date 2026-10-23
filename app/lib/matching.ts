@@ -4,52 +4,76 @@ import { COLLECTION, getQdrant } from "./qdrant";
 export type Outcome = "matched" | "low_confidence" | "no_match";
 
 export interface Thresholds {
-  matchMin: number;
-  reviewMin: number;
+  matchMax: number;
+  reviewMax: number;
+  marginMin: number;
 }
+
+// If the best match and the nearest face of a DIFFERENT student are closer
+// together than this, the scan is ambiguous and goes to the warden.
+export const MARGIN_MIN = 0.06;
 
 /**
- * Cosine scores of face descriptors are not calibrated: the right cut-offs
- * depend on the model, the camera and the lighting, so they come from env
- * vars and must be tuned with real faces (see docs/vector-design.md).
+ * Euclidean distance between face-api descriptors: the same person is
+ * usually below about 0.6. The defaults are a starting point and must be
+ * tuned with real faces from the real camera (see docs/vector-design.md).
  */
 export function getThresholds(): Thresholds {
-  const matchMin = Number(process.env.MATCH_MIN_SCORE ?? "0.85");
-  const reviewMin = Number(process.env.REVIEW_MIN_SCORE ?? "0.70");
-  if (!Number.isFinite(matchMin) || !Number.isFinite(reviewMin) || reviewMin >= matchMin || matchMin > 1 || reviewMin < 0) {
-    throw new Error("MATCH_MIN_SCORE / REVIEW_MIN_SCORE are invalid (need 0 <= REVIEW < MATCH <= 1)");
+  const matchMax = Number(process.env.MATCH_MAX_DISTANCE ?? "0.45");
+  const reviewMax = Number(process.env.REVIEW_MAX_DISTANCE ?? "0.60");
+  if (!Number.isFinite(matchMax) || !Number.isFinite(reviewMax) || matchMax <= 0 || reviewMax <= matchMax) {
+    throw new Error("MATCH_MAX_DISTANCE / REVIEW_MAX_DISTANCE are invalid (need 0 < MATCH < REVIEW)");
   }
-  return { matchMin, reviewMin };
-}
-
-export function classify(score: number | null, t: Thresholds): Outcome {
-  if (score === null) return "no_match";
-  if (score >= t.matchMin) return "matched";
-  if (score >= t.reviewMin) return "low_confidence";
-  return "no_match";
+  return { matchMax, reviewMax, marginMin: MARGIN_MIN };
 }
 
 export interface Candidate {
   studentId: number;
   faceProfileId: number | null;
-  score: number;
+  distance: number;
 }
 
-/** Top-2 nearest points in Qdrant (cosine similarity, higher is closer). */
-export async function searchTop2(vector: number[]): Promise<{ top: Candidate | null; second: Candidate | null }> {
-  const { points: hits } = await getQdrant().query(COLLECTION, { query: vector, limit: 2, with_payload: true });
-  const toCandidate = (h: (typeof hits)[number]): Candidate => ({
-    studentId: Number(h.payload?.student_id),
-    faceProfileId: h.payload?.face_profile_id == null ? null : Number(h.payload.face_profile_id),
-    score: h.score,
-  });
-  return { top: hits[0] ? toCandidate(hits[0]) : null, second: hits[1] ? toCandidate(hits[1]) : null };
+/**
+ * distance <= matchMax -> matched; <= reviewMax -> low_confidence; else no_match.
+ * Margin rule: a match whose runner-up (nearest face of another student) is
+ * less than marginMin further away is downgraded to low_confidence.
+ */
+export function classify(top: Candidate | null, runnerUp: Candidate | null, t: Thresholds): Outcome {
+  if (!top) return "no_match";
+  if (top.distance > t.reviewMax) return "no_match";
+  if (top.distance > t.matchMax) return "low_confidence";
+  if (runnerUp && runnerUp.studentId !== top.studentId && runnerUp.distance - top.distance < t.marginMin) {
+    return "low_confidence";
+  }
+  return "matched";
 }
 
-/** face_events.confidence is NUMERIC(4,3) CHECK 0..1; a cosine can be negative. */
-export function toConfidence(score: number | null): number | null {
-  if (score === null) return null;
-  return Math.round(Math.min(1, Math.max(0, score)) * 1000) / 1000;
+/**
+ * Nearest stored face, plus the nearest face of a different student (the
+ * runner-up). A student has several samples, so the 2nd-nearest point is
+ * often the same student; we look a few points further for another one.
+ */
+export async function searchNearest(vector: number[]): Promise<{ top: Candidate | null; runnerUp: Candidate | null }> {
+  const { points } = await getQdrant().query(COLLECTION, { query: vector, limit: 10, with_payload: true });
+  const candidates = points.map(
+    (h): Candidate => ({
+      studentId: Number(h.payload?.student_id),
+      faceProfileId: h.payload?.face_profile_id == null ? null : Number(h.payload.face_profile_id),
+      distance: h.score, // Euclid: the score is the distance
+    }),
+  );
+  const top = candidates[0] ?? null;
+  const runnerUp = top ? (candidates.find((c) => c.studentId !== top.studentId) ?? null) : null;
+  return { top, runnerUp };
+}
+
+/**
+ * face_events.confidence is NUMERIC(4,3) CHECK 0..1, so a distance is stored
+ * as confidence = max(0, 1 - distance), rounded to 3 places.
+ */
+export function toConfidence(distance: number | null): number | null {
+  if (distance === null) return null;
+  return Math.round(Math.max(0, Math.min(1, 1 - distance)) * 1000) / 1000;
 }
 
 // Clean, fixed messages for the database's FT*** business-rule errors

@@ -1,7 +1,7 @@
 import { authErrorResponse, requireRole } from "@/lib/auth-stub";
 import { getPool } from "@/lib/db";
-import { callInSavepoint, classify, getThresholds, mapProcedureError, searchTop2, toConfidence } from "@/lib/matching";
-import { toUnitVector } from "@/lib/vectors";
+import { callInSavepoint, classify, getThresholds, mapProcedureError, searchNearest, toConfidence } from "@/lib/matching";
+import { toDescriptor } from "@/lib/vectors";
 
 interface MatchBody {
   descriptor?: unknown;
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     } catch {
       return Response.json({ error: "Body must be JSON" }, { status: 400 });
     }
-    const vector = toUnitVector(body.descriptor);
+    const vector = toDescriptor(body.descriptor);
     if (!vector) return Response.json({ error: "descriptor must be 128 finite numbers" }, { status: 400 });
     const cameraId = body.camera_id;
     if (typeof cameraId !== "number" || !Number.isInteger(cameraId) || cameraId <= 0) {
@@ -47,11 +47,13 @@ export async function POST(request: Request) {
     if (cam.rows[0].status !== "active") return Response.json({ error: "Camera is not active" }, { status: 409 });
     const { gate_id: gateId, hostel_id: hostelId } = cam.rows[0];
 
-    const { top, second } = await searchTop2(vector);
-    const score = top ? top.score : null;
-    const outcome = classify(score, thresholds);
+    const { top, runnerUp } = await searchNearest(vector);
+    const distance = top ? top.distance : null;
+    const outcome = classify(top, runnerUp, thresholds);
     const studentId = outcome === "no_match" ? null : top!.studentId;
-    const margin = top && second ? top.score - second.score : null;
+    // gap to the nearest face of a different student (null if there is none)
+    const margin = top && runnerUp ? runnerUp.distance - top.distance : null;
+    const confidence = toConfidence(distance);
 
     const client = await pool.connect();
     try {
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
         `INSERT INTO face_events (camera_id, student_id, confidence, outcome)
          VALUES ($1, $2, $3, $4)
          RETURNING event_id, to_char(event_time, 'YYYY-MM-DD"T"HH24:MI:SS') || '+05:30' AS event_time`,
-        [cameraId, studentId, toConfidence(score), outcome],
+        [cameraId, studentId, confidence, outcome],
       );
       const eventId = ev.rows[0].event_id;
 
@@ -74,9 +76,10 @@ export async function POST(request: Request) {
         event_id: eventId,
         event_time: ev.rows[0].event_time,
         outcome,
-        score,
+        distance,
+        confidence,
         margin,
-        thresholds: { match_min: thresholds.matchMin, review_min: thresholds.reviewMin },
+        thresholds: { match_max_distance: thresholds.matchMax, review_max_distance: thresholds.reviewMax, margin_min: thresholds.marginMin },
         student,
       };
 
