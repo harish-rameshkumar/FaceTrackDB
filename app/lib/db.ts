@@ -1,4 +1,10 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+// Return TIMESTAMP and DATE columns as the raw strings Postgres sends. The
+// default parser builds JS Dates in the server's own zone, which would shift
+// the Asia/Kolkata wall-clock times the database stores.
+types.setTypeParser(1114, (v: string) => v);
+types.setTypeParser(1082, (v: string) => v);
 
 // One shared pool for the whole server process. Cached on globalThis so
 // Next.js hot reloading in development does not open a new pool per edit.

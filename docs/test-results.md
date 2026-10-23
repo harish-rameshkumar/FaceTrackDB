@@ -6,7 +6,7 @@ Run with the dev server on, after `npm run qdrant:init` and `npm run seed:faces`
 cd app && BASE_URL=http://localhost:3000 npm run test:match
 ```
 
-The script ([app/scripts/test-matching.ts](../app/scripts/test-matching.ts)) sends real HTTP requests to `POST /api/faces/match` with the synthetic descriptors, checks the database after each case, and deletes every row it created (row counts before and after were identical: 13 face events, 5 gate logs, 9 attendance rows, 4 violations, 4 sessions). Thresholds: `MATCH_MIN_SCORE=0.85`, `REVIEW_MIN_SCORE=0.70`. Output of one real run at 12:27 IST:
+The script ([app/scripts/test-matching.ts](../app/scripts/test-matching.ts)) sends real HTTP requests to `POST /api/faces/match` with the synthetic descriptors, checks the database after each case, and deletes every row it created (row counts before and after were identical: 13 face events, 5 gate logs, 9 attendance rows, 4 violations, 4 sessions). Thresholds: `MATCH_MIN_SCORE=0.85`, `REVIEW_MIN_SCORE=0.70`. Output of one real run at 12:28 IST:
 
 | Case | Input | Expected | Actual | Result |
 |---|---|---|---|---|
