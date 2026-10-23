@@ -33,7 +33,7 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
    ```bash
    cd app
    npm install
-   npm run qdrant:init       # creates face_embeddings (128-d, cosine); safe to repeat
+   npm run qdrant:init       # creates face_embeddings (128-d, Euclid); safe to repeat
    npm run seed:faces        # synthetic descriptors for the 6 seeded students (--reset to redo)
    npm run dev               # http://localhost:3000
    ```
@@ -53,12 +53,16 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 
 ### Match thresholds
 
+Matching uses **Euclidean distance** between face descriptors (smaller is closer), the metric the face-api model is trained for.
+
 | Variable | Default | Meaning |
 |---|---|---|
-| `MATCH_MIN_SCORE` | 0.85 | cosine score at or above this is an automatic match |
-| `REVIEW_MIN_SCORE` | 0.70 | from here up to `MATCH_MIN_SCORE` goes to the warden; below it is no match |
+| `MATCH_MAX_DISTANCE` | 0.45 | distance at or below this is an automatic match |
+| `REVIEW_MAX_DISTANCE` | 0.60 | above `MATCH_MAX_DISTANCE` up to this goes to the warden; above it is no match |
 
-These are starting guesses. Face-descriptor cosine scores are not calibrated, so tune them with real faces from your gate camera before relying on them (see [docs/vector-design.md](docs/vector-design.md)).
+A match is also sent to the warden when another student's face is less than 0.06 further away than the best one. The defaults are starting guesses: tune them with real faces from your gate camera before relying on them (see [docs/vector-design.md](docs/vector-design.md)).
+
+If you ever change the vector space or metric, run `cd app && npm run qdrant:reset -- --yes` (prints what it will delete, then deletes the `face_profiles` rows and recreates the collection; scan history is kept) and re-enrol everyone, or `npm run seed:faces` for the synthetic test students.
 
 ### Tests
 

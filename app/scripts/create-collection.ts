@@ -1,16 +1,13 @@
-// Idempotent: creates the face_embeddings collection (128-d, cosine) if it
+// Idempotent: creates the face_embeddings collection (128-d, Euclid) if it
 // is missing, and fails loudly if it exists with a different configuration.
 // Run: npm run qdrant:init
-import { checkCollection, COLLECTION, getQdrant, VECTOR_SIZE } from "../lib/qdrant";
+import { checkCollection, COLLECTION, createCollection, DISTANCE, VECTOR_SIZE } from "../lib/qdrant";
 
 async function main() {
-  const q = getQdrant();
   let status = await checkCollection();
   if (status.state === "missing") {
-    await q.createCollection(COLLECTION, { vectors: { size: VECTOR_SIZE, distance: "Cosine" } });
-    // filter by student_id (e.g. when deleting a student's vectors)
-    await q.createPayloadIndex(COLLECTION, { field_name: "student_id", field_schema: "integer", wait: true });
-    console.log(`Created collection ${COLLECTION} (${VECTOR_SIZE}-d, Cosine)`);
+    await createCollection();
+    console.log(`Created collection ${COLLECTION} (${VECTOR_SIZE}-d, ${DISTANCE})`);
     status = await checkCollection();
   }
   if (status.state !== "ok") {

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "qdrant:reset": "tsx --env-file=.env.local scripts/reset-collection.ts",
     "qdrant:init": "tsx --env-file=.env.local scripts/create-collection.ts",
     "seed:faces": "tsx --env-file=.env.local scripts/seed-face-vectors.ts",
     "test:match": "tsx --env-file=.env.local scripts/test-matching.ts"

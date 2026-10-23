@@ -19,40 +19,38 @@ function gaussian(rand: () => number): number {
 }
 
 /** The "true face" of a student: a fixed unit-length direction per student id. */
+// Unit length only so synthetic "faces" are about 1.4 apart (real different people
+// are roughly 0.8-1.2 apart); the app itself never normalises descriptors.
 export function baseDescriptor(studentId: number): number[] {
   const r = prng(1000 + studentId);
   return normalise(Array.from({ length: 128 }, () => gaussian(r)));
 }
 
-/** base + gaussian noise; cosine with base is about 1 / sqrt(1 + noise²). */
-export function noisyDescriptor(base: number[], noise: number, seed: number): number[] {
-  const r = prng(seed);
-  return normalise(base.map((x) => x + (noise * gaussian(r)) / Math.sqrt(128)));
-}
-
-/** A vector unrelated to every student. */
-export function randomDescriptor(seed: number): number[] {
+/** A unit-length random direction. */
+function randomDirection(seed: number): number[] {
   const r = prng(seed);
   return normalise(Array.from({ length: 128 }, () => gaussian(r)));
 }
 
-export function cosine(a: number[], b: number[]): number {
-  return a.reduce((s, x, i) => s + x * b[i], 0) / (Math.hypot(...a) * Math.hypot(...b));
+/** base moved by exactly `distance` (Euclidean) in a seeded random direction. */
+export function descriptorAtDistance(base: number[], distance: number, seed: number): number[] {
+  const dir = randomDirection(seed);
+  return base.map((x, i) => x + distance * dir[i]);
+}
+
+/** Same thing under the name the seed script uses: a "photo" of the same face. */
+export const noisyDescriptor = descriptorAtDistance;
+
+/** A descriptor unrelated to every student (about 1.4 from any other unit-length base). */
+export function randomDescriptor(seed: number): number[] {
+  return randomDirection(seed);
+}
+
+export function euclidean(a: number[], b: number[]): number {
+  return Math.hypot(...a.map((x, i) => x - b[i]));
 }
 
 export function normalise(v: number[]): number[] {
   const n = Math.hypot(...v);
   return v.map((x) => x / n);
-}
-
-/**
- * Mixes a base direction with an orthogonal one so the cosine with the base
- * is (almost exactly) `target`. Used to land a probe inside a score band.
- */
-export function descriptorWithCosine(base: number[], target: number, seed: number): number[] {
-  const other = randomDescriptor(seed);
-  const dot = other.reduce((s, x, i) => s + x * base[i], 0);
-  const ortho = normalise(other.map((x, i) => x - dot * base[i]));
-  const t = Math.sqrt(1 - target * target);
-  return normalise(base.map((x, i) => target * x + t * ortho[i]));
 }
