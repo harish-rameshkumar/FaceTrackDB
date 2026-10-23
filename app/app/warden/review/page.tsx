@@ -11,7 +11,7 @@ export default function ReviewPage() {
       <Link href="/" className="text-sm underline">Home</Link>
       <h1 className="mt-2 text-2xl font-semibold">Low-confidence scans</h1>
       <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Scans the system was not sure about. Confirm the suggested student (or pick another), or reject if nobody is recognised. Times are IST.
+        Scans the system was not sure about (a smaller distance means a closer match; confidence = 1 - distance). Confirm the suggested student (or pick another), or reject if nobody is recognised. Times are IST.
       </p>
       <Suspense fallback={<p className="text-sm">Loading…</p>}>
         <ReviewContent />
@@ -45,7 +45,7 @@ async function ReviewContent() {
     <table className="w-full text-left text-sm">
       <thead>
         <tr className="border-b border-zinc-300 dark:border-zinc-700">
-          <th className="py-2">Event</th><th>Time (IST)</th><th>Where</th><th>Score</th><th>Candidate</th><th>Decision</th>
+          <th className="py-2">Event</th><th>Time (IST)</th><th>Where</th><th>Distance</th><th>Confidence</th><th>Candidate</th><th>Decision</th>
         </tr>
       </thead>
       <tbody>
@@ -54,6 +54,7 @@ async function ReviewContent() {
             <td className="py-2">#{r.event_id}</td>
             <td>{r.event_time}</td>
             <td>{r.hostel}<br /><span className="text-zinc-500">{r.camera_location}</span></td>
+            <td>{(1 - Number(r.confidence)).toFixed(3)}</td>
             <td>{r.confidence}</td>
             <td>{r.candidate_name ? `${r.candidate_name} (${r.candidate_roll_no})` : "–"}</td>
             <td>

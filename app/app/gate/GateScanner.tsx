@@ -9,7 +9,8 @@ interface ScanResponse {
   event_id?: number;
   event_time?: string;
   outcome?: "matched" | "low_confidence" | "no_match";
-  score?: number | null;
+  distance?: number | null;
+  confidence?: number | null;
   student?: { name: string; roll_no: string } | null;
   result?: { kind: string; status?: string; direction?: string; violation_type?: string | null } | null;
   error?: string | { code: string; message: string };
@@ -139,7 +140,7 @@ function ResultCard({ entry }: { entry: ScanEntry }) {
     <div className={`max-w-md rounded-lg border-2 p-4 ${tone}`} role="status">
       <p className="text-lg font-semibold">{b.student ? `${b.student.name} (${b.student.roll_no})` : b.outcome === "no_match" ? "Not recognised" : "Error"}</p>
       <p className="text-sm">
-        {b.outcome ?? "–"}{typeof b.score === "number" ? ` · score ${b.score.toFixed(3)}` : ""}
+        {b.outcome ?? "–"}{typeof b.distance === "number" ? ` · distance ${b.distance.toFixed(3)} (confidence ${b.confidence?.toFixed(3)})` : ""}
       </p>
       {b.result?.kind === "entry_exit" && (
         <p className="mt-1 text-sm">Recorded <strong>{b.result.direction}</strong>{b.result.violation_type && <span className="ml-2 rounded bg-red-600 px-2 py-0.5 text-white">Violation: {b.result.violation_type}</span>}</p>
