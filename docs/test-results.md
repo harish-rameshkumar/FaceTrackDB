@@ -33,3 +33,28 @@ Not covered by this run:
 - The late-night violation paths (`no_leave` after 20:00, `late_return` after 22:30). The test computes the expected violation from the clock, so only the "no violation" branch was exercised at midday. Those rules are exercised by `db/transactions_demo.sql` scenario A (a 23:05 exit raises `no_leave`).
 - Real faces. All inputs are synthetic.
 - A Qdrant outage in the middle of enrolment (the rollback and cleanup path was written but not fault-injected).
+
+## Pages and review API (checked with curl against `next dev`)
+
+| Check | Expected | Actual |
+|---|---|---|
+| `/enrol`, `/gate`, `/warden/review` with no role | "Access denied" page | as expected (all three) |
+| `/enrol` as admin; as warden | form with 6 students; Access denied | as expected |
+| `/gate` as security | lists active cameras only (inactive back-gate camera absent) | as expected |
+| Review page, empty queue; with 2 low-confidence events | "Nothing to review"; both rows with Confirm/Reject | as expected |
+| `POST /api/review/{id}` as security | 403 | 403 |
+| confirm, then confirm the same event again | 200 `matched` + reviewer set; then 404 | as expected |
+| reject | 200 `no_match`, student NULL, reviewer set | as expected |
+| reviewer user id belonging to a student account | 422 (trigger FT040) | 422 |
+| confirm with student 99 | 409 | 409 |
+| `/models/*.bin` and manifests served | 200 | 200 (6.4 MB recognition weights) |
+
+## What must be tested by hand (needs a webcam)
+
+1. `/enrol`: pick a student, allow the camera, click the button; the progress bar should reach 4 of 4 and show "Enrolled 4 face samples". Check the sample count in the dropdown after reloading.
+2. `/gate`: with the same person, "Scan now" should show the student's name and `matched`. Try gate in/out (direction alternates) and, with an open roll call for that hostel, "Roll call".
+3. Hold a photo of the person or a different person, and a poorly lit face, to see `low_confidence` and `no_match`; the first should appear on `/warden/review`.
+4. Tune `MATCH_MIN_SCORE` and `REVIEW_MIN_SCORE` from the scores you actually see.
+5. Check that the face model loads in your browser (the network tab shows `/models/...` requests) and that auto-scan does not pile up requests.
+
+Roll-call scans only work when an `attendance_sessions` row exists for the hostel covering the current IST time; the seed data has none for today (see NEEDS_FROM_PARTNER.md).
