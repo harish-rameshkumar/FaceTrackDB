@@ -4,7 +4,7 @@
 # WARNING: schema.sql drops and recreates every table, so all existing
 # data is replaced by the seed data.
 
-$files = @("settings", "schema", "seed", "triggers", "procedures")
+$files = @("settings", "schema", "seed", "triggers", "procedures", "demo_passwords")
 
 foreach ($name in $files) {
     $path = "db\$name.sql"
@@ -16,4 +16,4 @@ foreach ($name in $files) {
     }
 }
 
-Write-Host "Done. Database rebuilt with schema, seed data, triggers and procedures." -ForegroundColor Green
+Write-Host "Done. Database rebuilt with schema, seed data, triggers, procedures and demo passwords." -ForegroundColor Green

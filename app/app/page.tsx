@@ -1,7 +1,11 @@
 const links = [
+  { href: "/login", title: "Sign in", who: "Everyone", text: "Sign in to open the pages for your role." },
   { href: "/enrol", title: "Enrol faces", who: "Admin", text: "Capture a student's face and store it for recognition." },
   { href: "/gate", title: "Gate and roll call", who: "Security", text: "Scan faces at the gate or during the evening roll call." },
   { href: "/warden/review", title: "Review queue", who: "Warden", text: "Decide the scans the system was not sure about." },
+  { href: "/student/leave", title: "My leave", who: "Student", text: "Request leave and follow the decision." },
+  { href: "/parent/leave", title: "Leave requests", who: "Parent", text: "Approve or reject your ward's leave requests." },
+  { href: "/violations", title: "Violations", who: "Student, parent, warden", text: "Late returns, missed roll calls and leaving without leave." },
   { href: "/api/health", title: "System health", who: "Anyone", text: "Check the database and vector store connections." },
 ];
 
@@ -22,7 +26,7 @@ export default function Home() {
         ))}
       </ul>
       <p className="mt-8 text-xs text-zinc-500">
-        Development: until the real login is added, act as a role with the cookie <code>dev_role</code> (admin, security or warden).
+        Pages need a signed-in account of the right role. <a href="/login" className="underline">Sign in</a> to continue.
       </p>
     </main>
   );
