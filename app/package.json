@@ -6,10 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "qdrant:reset": "tsx --env-file=.env.local scripts/reset-collection.ts",
+    "qdrant:init": "tsx --env-file=.env.local scripts/create-collection.ts",
+    "seed:faces": "tsx --env-file=.env.local scripts/seed-face-vectors.ts",
+    "test:match": "tsx --env-file=.env.local scripts/test-matching.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.19.0",
+    "@vladmandic/face-api": "^1.7.15",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.13",
     "next": "16.4.2",
@@ -27,6 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
