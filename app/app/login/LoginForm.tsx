@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Where each role lands after signing in. Student and parent pages come with
-// the leave workflow; until then they land on the home page.
+// Where each role lands after signing in.
 const HOME_BY_ROLE: Record<string, string> = {
   admin: "/enrol",
   security: "/gate",
   warden: "/warden/review",
-  student: "/",
-  parent: "/",
+  student: "/student/leave",
+  parent: "/parent/leave",
 };
 
 export default function LoginForm() {
