@@ -44,13 +44,19 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 
 | Path | Role | What |
 |---|---|---|
+| `/login`, `POST /api/login`, `/api/logout`, `/api/me` | everyone | sign in / out (Person A) |
+| `/student/leave`, `/parent/leave`, `/violations` | student, parent, warden/admin (violations) | leave requests and decisions, violations list (Person A) |
+| `/warden` | warden, admin | dashboard: students inside/outside, on leave, open violations, scans waiting for review, presence and attendance tables with filters, monthly attendance per hostel |
+| `/warden/search` | warden, admin | full-text search over violation details and leave reasons, ranked with highlighted matches |
+| `/warden/review` | warden, admin | confirm or reject low-confidence scans |
 | `/enrol` | admin | capture frames from the webcam, store face vectors |
 | `/gate` | security, admin | scan faces for gate in/out or roll call |
-| `/warden/review` | warden, admin | confirm or reject low-confidence scans |
 | `POST /api/faces/enrol`, `DELETE /api/faces/[id]` | admin | enrol / remove face vectors (PostgreSQL + Qdrant) |
 | `POST /api/faces/match` | security, admin | match a descriptor, log the face event, mark attendance or gate log |
 | `POST /api/review/[eventId]` | warden, admin | decide a low-confidence event |
 | `GET /api/health` | none | PostgreSQL, Qdrant and collection status |
+
+The dashboard and search read the views and full-text columns created by `./db/load_b.sh` (step 4), so run it before opening them.
 
 ### Match thresholds
 
