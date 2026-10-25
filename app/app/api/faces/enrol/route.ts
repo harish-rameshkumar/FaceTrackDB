@@ -1,4 +1,4 @@
-import { authErrorResponse, requireRole } from "@/lib/auth-stub";
+import { authErrorResponse, requireRole } from "@/lib/auth";
 import { enrolDescriptors, FaceError } from "@/lib/faces";
 
 export async function POST(request: Request) {

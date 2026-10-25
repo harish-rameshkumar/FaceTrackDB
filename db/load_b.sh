@@ -4,12 +4,19 @@
 # triggers, procedures) are loaded.
 #   ./db/load_b.sh          load the views, queries and search files
 #   ./db/load_b.sh --demo   also run the EXPLAIN before/after demo
-# Credentials come from the environment or the repo-root .env file.
+# Credentials come from the environment or the repo-root .env file; values set
+# in the environment take priority over .env.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Read .env, but a variable that is already set in the environment wins, so
+# `POSTGRES_DB=other_db ./db/load_b.sh` really loads into other_db.
 if [ -f .env ]; then
-  set -a; . ./.env; set +a
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    case "$key" in ''|'#'*) continue ;; esac
+    value="${value%$'\r'}"; value="${value#\"}"; value="${value%\"}"
+    if [ -z "${!key+x}" ]; then export "$key=$value"; fi
+  done < .env
 fi
 : "${POSTGRES_USER:?POSTGRES_USER is not set (see .env.example)}"
 : "${POSTGRES_DB:?POSTGRES_DB is not set (see .env.example)}"

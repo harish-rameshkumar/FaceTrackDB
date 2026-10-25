@@ -1,20 +1,22 @@
-import Link from "next/link";
 import { Suspense } from "react";
+import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
-import { AuthError, requireRole } from "@/lib/auth-stub";
+import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { GateScanner } from "./GateScanner";
 
 export default function GatePage() {
   return (
-    <main className="mx-auto w-full max-w-3xl p-8">
-      <Link href="/" className="text-sm underline">Home</Link>
-      <h1 className="mt-2 text-2xl font-semibold">Gate and roll-call scanner</h1>
-      <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Security staff. Recognises a face and records the gate crossing or the roll-call mark.</p>
-      <Suspense fallback={<p className="text-sm">Loading…</p>}>
-        <GateContent />
-      </Suspense>
-    </main>
+    <>
+      <AppHeader />
+      <main className="mx-auto w-full max-w-3xl p-8">
+        <h1 className="text-2xl font-semibold">Gate and roll-call scanner</h1>
+        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Security staff. Recognises a face and records the gate crossing or the roll-call mark.</p>
+        <Suspense fallback={<p className="text-sm">Loading…</p>}>
+          <GateContent />
+        </Suspense>
+      </main>
+    </>
   );
 }
 

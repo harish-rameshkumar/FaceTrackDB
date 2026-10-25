@@ -1,4 +1,4 @@
-import { authErrorResponse, requireRole } from "@/lib/auth-stub";
+import { authErrorResponse, requireRole } from "@/lib/auth";
 import { deleteProfile } from "@/lib/faces";
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ faceProfileId: string }> }) {

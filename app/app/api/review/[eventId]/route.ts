@@ -1,4 +1,4 @@
-import { authErrorResponse, requireRole } from "@/lib/auth-stub";
+import { authErrorResponse, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 
 // Warden decision on a low-confidence face event.

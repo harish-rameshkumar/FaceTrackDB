@@ -1,22 +1,24 @@
-import Link from "next/link";
 import { Suspense } from "react";
+import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
-import { AuthError, requireRole } from "@/lib/auth-stub";
+import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { ReviewActions } from "./ReviewActions";
 
 export default function ReviewPage() {
   return (
-    <main className="mx-auto w-full max-w-4xl p-8">
-      <Link href="/" className="text-sm underline">Home</Link>
-      <h1 className="mt-2 text-2xl font-semibold">Low-confidence scans</h1>
-      <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Scans the system was not sure about (a smaller distance means a closer match; confidence = 1 - distance). Confirm the suggested student (or pick another), or reject if nobody is recognised. Times are IST.
-      </p>
-      <Suspense fallback={<p className="text-sm">Loading…</p>}>
-        <ReviewContent />
-      </Suspense>
-    </main>
+    <>
+      <AppHeader />
+      <main className="mx-auto w-full max-w-4xl p-8">
+        <h1 className="text-2xl font-semibold">Low-confidence scans</h1>
+        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Scans the system was not sure about (a smaller distance means a closer match; confidence = 1 - distance). Confirm the suggested student (or pick another), or reject if nobody is recognised. Times are IST.
+        </p>
+        <Suspense fallback={<p className="text-sm">Loading…</p>}>
+          <ReviewContent />
+        </Suspense>
+      </main>
+    </>
   );
 }
 

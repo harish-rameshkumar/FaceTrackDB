@@ -5,7 +5,13 @@
 // It creates a roll-call session for hostel 2 around "now", and deletes every
 // row it created when it finishes. Prints a markdown table.
 // Distances are Euclidean (L2). Thresholds: MATCH_MAX_DISTANCE / REVIEW_MAX_DISTANCE.
+// Signs in through POST /api/login. The accounts come from db/seed.sql (first
+// security, admin and student email) and the demo password from the comment in
+// db/demo_passwords.sql, so no credential is hard-coded here. Override with
+// TEST_PASSWORD if you changed the demo password.
 // Run: BASE_URL=http://localhost:3111 npm run test:match
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { getPool } from "../lib/db";
 import { baseDescriptor, descriptorAtDistance, randomDescriptor } from "./synthetic";
 
@@ -16,10 +22,44 @@ let failures = 0;
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-async function post(body: unknown, role: string | null = "security", userId?: number): Promise<{ status: number; json: Json }> {
+type Role = "security" | "admin" | "student";
+
+// Reads the seeded account email of a role and the shared demo password from the SQL files.
+function demoCredentials(role: Role): { email: string; password: string } {
+  const dbDir = resolve(process.cwd(), "..", "db");
+  const seed = readFileSync(resolve(dbDir, "seed.sql"), "utf8");
+  const match = new RegExp(`'([^']+@[^']+)'[^)\\n]*'${role}'\\)`).exec(seed);
+  const demo = readFileSync(resolve(dbDir, "demo_passwords.sql"), "utf8");
+  const pw = process.env.TEST_PASSWORD ?? /Password for all accounts:\s+(\S+)/.exec(demo)?.[1];
+  if (!match || !pw) throw new Error(`Could not find a ${role} account or the demo password in db/seed.sql / db/demo_passwords.sql`);
+  return { email: match[1], password: pw };
+}
+
+const cookies: Partial<Record<Role, string>> = {};
+
+// Logs in once per role and returns the session cookie ("name=value").
+async function cookieFor(role: Role): Promise<string> {
+  if (!cookies[role]) {
+    const res = await fetch(`${BASE}/api/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(demoCredentials(role)),
+    });
+    const setCookie = res.headers.get("set-cookie");
+    if (!res.ok || !setCookie) throw new Error(`Login as ${role} failed (HTTP ${res.status}); are the demo passwords loaded (db/demo_passwords.sql)?`);
+    cookies[role] = setCookie.split(";")[0];
+  }
+  return cookies[role] as string;
+}
+
+async function authHeaders(role: Role | null): Promise<Record<string, string>> {
+  return role ? { "content-type": "application/json", cookie: await cookieFor(role) } : { "content-type": "application/json" };
+}
+
+async function post(body: unknown, role: Role | null = "security"): Promise<{ status: number; json: Json }> {
   const res = await fetch(`${BASE}/api/faces/match`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...(role ? { "x-dev-role": role } : {}), ...(userId ? { "x-dev-user-id": String(userId) } : {}) },
+    headers: await authHeaders(role),
     body: JSON.stringify(body),
   });
   return { status: res.status, json: await res.json() };
@@ -41,7 +81,7 @@ async function scalar(sql: string, params: unknown[] = []): Promise<number> {
 let lookalikeIds: number[] = [];
 async function removeLookalikes() {
   for (const id of lookalikeIds) {
-    await fetch(`${BASE}/api/faces/${id}`, { method: "DELETE", headers: { "x-dev-role": "admin" } });
+    await fetch(`${BASE}/api/faces/${id}`, { method: "DELETE", headers: await authHeaders("admin") });
   }
   lookalikeIds = [];
 }
@@ -147,7 +187,7 @@ async function main() {
     const sample = enrolled(4, 2);
     const look = await fetch(`${BASE}/api/faces/enrol`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-dev-role": "admin" },
+      headers: await authHeaders("admin"),
       body: JSON.stringify({ student_id: 5, descriptors: [11, 12, 13].map((k) => descriptorAtDistance(sample, 0.04, k)) }),
     });
     const lookJson = await look.json();
@@ -167,10 +207,10 @@ async function main() {
     record("Bad descriptor", "3 numbers instead of 128", "400", `${r.status} ${r.json.error}`, r.status === 400);
     r = await post({ descriptor: exact4, camera_id: 4, purpose: "lunch" });
     record("Bad purpose", "purpose='lunch'", "400", `${r.status}`, r.status === 400);
-    r = await post({ descriptor: exact4, camera_id: 4, purpose: "attendance" }, "student", 4);
+    r = await post({ descriptor: exact4, camera_id: 4, purpose: "attendance" }, "student");
     record("Wrong role", "role student", "403", `${r.status}`, r.status === 403);
     r = await post({ descriptor: exact4, camera_id: 4, purpose: "attendance" }, null);
-    record("Not signed in", "no role header", "401", `${r.status}`, r.status === 401);
+    record("Not signed in", "no session cookie", "401", `${r.status}`, r.status === 401);
   } finally {
     await removeLookalikes();
     // remove everything this run created

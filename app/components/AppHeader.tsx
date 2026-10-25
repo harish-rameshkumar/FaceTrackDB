@@ -17,12 +17,18 @@ const NAV: Record<string, { href: string; label: string }[]> = {
     { href: "/violations", label: "Violations" },
   ],
   warden: [
+    { href: "/warden", label: "Dashboard" },
+    { href: "/warden/search", label: "Search" },
     { href: "/warden/review", label: "Review scans" },
     { href: "/violations", label: "Violations" },
   ],
   security: [{ href: "/gate", label: "Gate" }],
   admin: [
+    { href: "/warden", label: "Dashboard" },
+    { href: "/warden/search", label: "Search" },
     { href: "/enrol", label: "Enrol faces" },
+    { href: "/gate", label: "Gate" },
+    { href: "/warden/review", label: "Review scans" },
     { href: "/violations", label: "Violations" },
   ],
 };
