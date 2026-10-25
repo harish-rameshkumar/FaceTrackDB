@@ -1,0 +1,86 @@
+﻿
+=== Q1. Roll-call sheet for session 2 (JOIN + LEFT JOIN) ===
+ roll_no |    name    |     status     | marked_at 
+---------+------------+----------------+-----------
+ 21CS001 | Arun Kumar | present        | 22:02
+ 21CS007 | Karthik R  | low_confidence | 22:06
+ 21EC012 | Rahul V    | present        | 22:11
+(3 rows)
+
+
+=== Q2. Attendance summary per student (GROUP BY) ===
+ roll_no |    name    | present | low_confidence | absent | attended_percent 
+---------+------------+---------+----------------+--------+------------------
+ 21EC020 | Sneha M    |       0 |              0 |      1 |                0
+ 21EC012 | Rahul V    |       1 |              0 |      1 |               50
+ 21CS001 | Arun Kumar |       2 |              0 |      0 |              100
+ 21CS007 | Karthik R  |       1 |              1 |      0 |              100
+ 21CS014 | Divya S    |       1 |              0 |      0 |              100
+ 21IT003 | Meena R    |       1 |              0 |      0 |              100
+(6 rows)
+
+
+=== Q3. Students with more than one violation (GROUP BY + HAVING) ===
+ roll_no |  name   | violations | still_open 
+---------+---------+------------+------------
+ 21EC012 | Rahul V |          2 |          1
+ 21EC020 | Sneha M |          2 |          2
+(2 rows)
+
+
+=== Q4. Violations per hostel and type (three-table JOIN + GROUP BY) ===
+         hostel         |       type        | total 
+------------------------+-------------------+-------
+ Aryabhatta Boys Hostel | late_return       |     1
+ Aryabhatta Boys Hostel | missed_attendance |     1
+ Kalam Girls Hostel     | missed_attendance |     1
+ Kalam Girls Hostel     | no_leave          |     1
+(4 rows)
+
+
+=== Q5. Students who are outside right now (correlated subquery) ===
+ roll_no |  name   
+---------+---------
+ 21EC020 | Sneha M
+(1 row)
+
+
+=== Q6. Students on approved leave on 24 Oct 2026 (IN subquery) ===
+ roll_no |    name    
+---------+------------
+ 21CS001 | Arun Kumar
+(1 row)
+
+
+=== Q7. Students not yet marked in session 4 (NOT EXISTS) ===
+ roll_no |    name    
+---------+------------
+ 21CS001 | Arun Kumar
+ 21CS007 | Karthik R
+ 21EC012 | Rahul V
+(3 rows)
+
+
+=== Q8. Parents with more than one ward (JOIN + GROUP BY + HAVING) ===
+   parent   | wards |     ward_names     
+------------+-------+--------------------
+ Ramanathan |     2 | Karthik R, Meena R
+(1 row)
+
+
+=== Q9. Face recognition results by outcome (GROUP BY) ===
+    outcome     | events | avg_confidence 
+----------------+--------+----------------
+ matched        |     11 |          0.924
+ low_confidence |      1 |          0.712
+ no_match       |      1 |          0.512
+(3 rows)
+
+
+=== Q10. Students whose average scan confidence is below the overall average (subquery in HAVING) ===
+   name    | scans | avg_confidence 
+-----------+-------+----------------
+ Karthik R |     4 |          0.874
+ Rahul V   |     3 |          0.902
+(2 rows)
+

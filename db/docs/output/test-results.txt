@@ -1,0 +1,94 @@
+﻿BEGIN
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+
+=== TEST RESULTS ===
+ n  | result |                                 label                                 |    expected    |      got       
+----+--------+-----------------------------------------------------------------------+----------------+----------------
+  1 | PASS   | [constraint] leave end date before start date                         | 23514          | 23514
+  2 | PASS   | [constraint] duplicate attendance row (same student and session)      | 23505          | 23505
+  3 | PASS   | [constraint] unknown user role                                        | 23514          | 23514
+  4 | PASS   | [constraint] duplicate email                                          | 23505          | 23505
+  5 | PASS   | [constraint] email without @                                          | 23514          | 23514
+  6 | PASS   | [constraint] NOT NULL: student without a name                         | 23502          | 23502
+  7 | PASS   | [constraint] foreign key: gate for a hostel that does not exist       | 23503          | 23503
+  8 | PASS   | [constraint] attendance cannot point to another student's face event  | 23503          | 23503
+  9 | PASS   | [constraint] matched face event must name a student                   | 23514          | 23514
+ 10 | PASS   | [constraint] confidence above 1                                       | 23514          | 23514
+ 11 | PASS   | [constraint] violation must point at a log or a session               | 23514          | 23514
+ 12 | PASS   | [constraint] resolved violation needs a resolver                      | 23514          | 23514
+ 13 | PASS   | [constraint] session end before start                                 | 23514          | 23514
+ 14 | PASS   | [constraint] two sessions in the same slot                            | 23505          | 23505
+ 15 | PASS   | [constraint] parent phone format                                      | 23514          | 23514
+ 16 | PASS   | [constraint] two gates with the same name in one hostel               | 23505          | 23505
+ 17 | PASS   | [constraint] pending leave cannot already have a decider              | 23514          | 23514
+ 18 | PASS   | [constraint] leave decided by a parent of another student             | 23503          | 23503
+ 19 | PASS   | [constraint] overlapping approved leave (exclusion constraint)        | 23P01          | 23P01
+ 20 | PASS   | [trigger FT003] attendance for a student of another hostel            | FT003          | FT003
+ 21 | PASS   | [trigger FT004] attendance mark outside the roll-call window          | FT004          | FT004
+ 22 | PASS   | [trigger FT005] present cannot be downgraded to absent                | FT005          | FT005
+ 23 | PASS   | [trigger] warden review: low_confidence becomes present               | ok             | ok
+ 24 | PASS   | [trigger FT010] a decided leave request cannot be edited              | FT010          | FT010
+ 25 | PASS   | [trigger] create an old pending leave for the next test               | ok             | ok
+ 26 | PASS   | [trigger FT011] a leave that already ended cannot be approved         | FT011          | FT011
+ 27 | PASS   | [trigger FT021] gate of another hostel                                | FT021          | FT021
+ 28 | PASS   | [trigger] first gate event of a student (OUT)                         | ok             | ok
+ 29 | PASS   | [trigger FT022] OUT twice in a row                                    | FT022          | FT022
+ 30 | PASS   | [trigger FT023] gate event older than the last one                    | FT023          | FT023
+ 31 | PASS   | [trigger FT040] a parent account cannot be used as a student          | FT040          | FT040
+ 32 | PASS   | [trigger FT040] only a warden or admin can review a scan              | FT040          | FT040
+ 33 | PASS   | [mark_attendance] matched scan is accepted                            | ok             | ok
+ 34 | PASS   | [mark_attendance] stored status is present                            | present        | present
+ 35 | PASS   | [mark_attendance FT001] second scan of the same student               | FT001          | FT001
+ 36 | PASS   | [mark_attendance] low-confidence scan is accepted                     | ok             | ok
+ 37 | PASS   | [mark_attendance] stored status is low_confidence                     | low_confidence | low_confidence
+ 38 | PASS   | [mark_attendance FT002] session does not exist                        | FT002          | FT002
+ 39 | PASS   | [mark_attendance FT009] student does not exist                        | FT009          | FT009
+ 40 | PASS   | [mark_attendance FT006] face event does not exist                     | FT006          | FT006
+ 41 | PASS   | [mark_attendance FT007] face event belongs to another student         | FT007          | FT007
+ 42 | PASS   | [mark_attendance FT003] student of another hostel                     | FT003          | FT003
+ 43 | PASS   | [record_entry_exit] night exit without leave is recorded              | ok             | ok
+ 44 | PASS   | [record_entry_exit] ...and a no_leave violation is raised             | no_leave       | no_leave
+ 45 | PASS   | [record_entry_exit] return before curfew is recorded                  | ok             | ok
+ 46 | PASS   | [record_entry_exit] ...with no violation                              | 0              | 0
+ 47 | PASS   | [record_entry_exit] evening exit before 20:00 is recorded             | ok             | ok
+ 48 | PASS   | [record_entry_exit] return at 23:10 is recorded                       | ok             | ok
+ 49 | PASS   | [record_entry_exit] ...and a late_return violation is raised          | late_return    | late_return
+ 50 | PASS   | [record_entry_exit] night exit during approved leave is recorded      | ok             | ok
+ 51 | PASS   | [record_entry_exit] ...with no violation (leave covers the date)      | 0              | 0
+ 52 | PASS   | [record_entry_exit FT020] invalid direction                           | FT020          | FT020
+ 53 | PASS   | [record_entry_exit FT024] face event captured at another gate         | FT024          | FT024
+ 54 | PASS   | [record_entry_exit FT007] face event belongs to another student       | FT007          | FT007
+ 55 | PASS   | [decide_leave] create two overlapping pending requests                | ok             | ok
+ 56 | PASS   | [decide_leave FT033] parent of a different student                    | FT033          | FT033
+ 57 | PASS   | [decide_leave FT030] invalid decision                                 | FT030          | FT030
+ 58 | PASS   | [decide_leave FT031] request does not exist                           | FT031          | FT031
+ 59 | PASS   | [decide_leave] the right parent approves                              | ok             | ok
+ 60 | PASS   | [decide_leave] request is now approved                                | approved       | approved
+ 61 | PASS   | [decide_leave FT032] second decision on the same request              | FT032          | FT032
+ 62 | PASS   | [decide_leave FT034] approving would overlap an approved leave        | FT034          | FT034
+ 63 | PASS   | [close_attendance_session] create a past session for hostel 2         | ok             | ok
+ 64 | PASS   | [close_attendance_session] close it                                   | ok             | ok
+ 65 | PASS   | [close_attendance_session] everyone who did not scan is absent        | 3              | 3
+ 66 | PASS   | [close_attendance_session] ...with a missed_attendance violation each | 3              | 3
+ 67 | PASS   | [close_attendance_session] closing twice is harmless                  | ok             | ok
+ 68 | PASS   | [close_attendance_session] ...and adds nothing                        | 3              | 3
+ 69 | PASS   | [close_attendance_session] create a future session                    | ok             | ok
+ 70 | PASS   | [close_attendance_session FT008] session has not ended yet            | FT008          | FT008
+ 71 | PASS   | [close_attendance_session FT002] session does not exist               | FT002          | FT002
+(71 rows)
+
+
+=== SUMMARY ===
+ passed | failed | total 
+--------+--------+-------
+     71 |      0 |    71
+(1 row)
+
+ROLLBACK
+All test changes were rolled back: the database is unchanged.
