@@ -66,8 +66,11 @@ Matching uses **Euclidean distance** between face descriptors (smaller is closer
 |---|---|---|
 | `MATCH_MAX_DISTANCE` | 0.45 | distance at or below this is an automatic match |
 | `REVIEW_MAX_DISTANCE` | 0.60 | above `MATCH_MAX_DISTANCE` up to this goes to the warden; above it is no match |
+| `SCAN_COOLDOWN_SECONDS` | 20 | minimum seconds between two **gate in/out** scans of the same student (not roll call). `0` turns it off; anything that is not a non-negative integer falls back to 20 with a warning in the server log |
 
 A match is also sent to the warden when another student's face is less than 0.06 further away than the best one. The defaults are starting guesses: tune them with real faces from your gate camera before relying on them (see [docs/vector-design.md](docs/vector-design.md)).
+
+**Scan cooldown.** Without it, a student standing in front of the camera is scanned again and again and flips IN/OUT. A gate scan of a recognised student less than `SCAN_COOLDOWN_SECONDS` after their last gate scan is refused with HTTP 429 (`{ "code": "scan_cooldown", "retryAfterSeconds": N }` and a `Retry-After` header). Nothing is written, and `/gate` shows a calm "Already scanned. Please wait N seconds." notice. The check runs in the match endpoint under a per-student lock, so simultaneous scans cannot both pass.
 
 If you ever change the vector space or metric, run `cd app && npm run qdrant:reset -- --yes` (prints what it will delete, then deletes the `face_profiles` rows and recreates the collection; scan history is kept) and re-enrol everyone, or `npm run seed:faces` for the synthetic test students.
 
@@ -75,8 +78,12 @@ If you ever change the vector space or metric, run `cd app && npm run qdrant:res
 
 ```bash
 cd app
-npm run dev                                   # in one terminal
-BASE_URL=http://localhost:3000 npm run test:match   # in another; cleans up after itself
+# terminal 1: the dev server, with a short cooldown so the suite stays fast
+SCAN_COOLDOWN_SECONDS=3 npm run dev
+# terminal 2: the same value here (the test reads it from its own environment); cleans up after itself
+SCAN_COOLDOWN_SECONDS=3 BASE_URL=http://localhost:3000 npm run test:match
 npx tsc --noEmit && npm run lint && npm run build
 ```
+Use the **same** `SCAN_COOLDOWN_SECONDS` for the server and for the test. With a cooldown the suite waits it out between gate scans of one student and checks that a second scan inside it gets 429; with `0` it checks instead that the cooldown is disabled. Run it once with `3` and once with `0` (restart the dev server with the new value each time). The default of 20 also works but makes the run slow.
+
 The camera pages cannot be tested without a camera; see the hand-test list in [docs/test-results.md](docs/test-results.md).

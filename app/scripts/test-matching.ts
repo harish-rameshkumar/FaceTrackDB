@@ -9,10 +9,18 @@
 // security, admin and student email) and the demo password from the comment in
 // db/demo_passwords.sql, so no credential is hard-coded here. Override with
 // TEST_PASSWORD if you changed the demo password.
+// Gate scan cooldown: SCAN_COOLDOWN_SECONDS must be the SAME value for the dev
+// server and for this script (the script reads it from its own environment, with
+// the same default of 20 and the same validation). Use a short one so the run is fast:
+//   SCAN_COOLDOWN_SECONDS=3 npm run dev                              (terminal 1)
+//   SCAN_COOLDOWN_SECONDS=3 BASE_URL=http://localhost:3000 npm run test:match   (terminal 2)
+// Run it once with 0 as well: that skips the cooldown cases and instead checks
+// that 0 really disables the cooldown.
 // Run: BASE_URL=http://localhost:3111 npm run test:match
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPool } from "../lib/db";
+import { getScanCooldownSeconds } from "../lib/matching";
 import { baseDescriptor, descriptorAtDistance, randomDescriptor } from "./synthetic";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
@@ -56,14 +64,16 @@ async function authHeaders(role: Role | null): Promise<Record<string, string>> {
   return role ? { "content-type": "application/json", cookie: await cookieFor(role) } : { "content-type": "application/json" };
 }
 
-async function post(body: unknown, role: Role | null = "security"): Promise<{ status: number; json: Json }> {
+async function post(body: unknown, role: Role | null = "security"): Promise<{ status: number; json: Json; retryAfter: string | null }> {
   const res = await fetch(`${BASE}/api/faces/match`, {
     method: "POST",
     headers: await authHeaders(role),
     body: JSON.stringify(body),
   });
-  return { status: res.status, json: await res.json() };
+  return { status: res.status, json: await res.json(), retryAfter: res.headers.get("retry-after") };
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function record(name: string, input: string, expected: string, actual: string, pass: boolean) {
   if (!pass) failures++;
@@ -163,22 +173,90 @@ async function main() {
     const expectOut = lateOut ? "no_leave" : null;
     const expectIn = lateIn ? "late_return" : null;
     const exact4 = enrolled(4, 1);
+    const cooldown = getScanCooldownSeconds(); // same value as the server's SCAN_COOLDOWN_SECONDS
+    const waitOutCooldown = () => sleep(cooldown > 0 ? (cooldown + 1) * 1000 : 0);
 
     r = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit" });
     record("Gate: first scan", `student 4, direction inferred, ${now}`, `OUT, violation ${expectOut}`,
       `${r.status} ${r.json.outcome} ${r.json.result?.direction} violation=${r.json.result?.violation_type}`,
       r.status === 200 && r.json.result?.direction === "OUT" && r.json.result?.violation_type === expectOut);
 
+    await waitOutCooldown(); // the same student may not be scanned again within the cooldown
     r = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit", direction: "IN" });
     record("Gate: return", `student 4, IN, ${now}`, `IN, violation ${expectIn}`,
       `${r.status} ${r.json.result?.direction} violation=${r.json.result?.violation_type}`,
       r.status === 200 && r.json.result?.direction === "IN" && r.json.result?.violation_type === expectIn);
 
+    await waitOutCooldown();
     const evBefore = await events();
     r = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit", direction: "IN" });
     record("Gate: duplicate IN", "student 4 IN twice", "409 FT022, event still logged",
       `${r.status} ${r.json.error?.code}; events +${(await events()) - evBefore}`,
       r.status === 409 && r.json.error?.code === "FT022" && (await events()) === evBefore + 1);
+
+    // --- scan cooldown (gate scans only) ---
+    const logsOf = (sid: number) => scalar("SELECT count(*) FROM entry_exit_log WHERE student_id=$1", [sid]);
+    const violations = () => scalar("SELECT count(*) FROM violations");
+    const lastDirection = async (sid: number) =>
+      (await pool.query("SELECT direction FROM entry_exit_log WHERE student_id=$1 ORDER BY event_time DESC, log_id DESC LIMIT 1", [sid])).rows[0]?.direction;
+
+    // config parsing: 0 disables, bad values fall back to the default of 20
+    {
+      const saved = process.env.SCAN_COOLDOWN_SECONDS;
+      const parse = (v: string | undefined) => {
+        if (v === undefined) delete process.env.SCAN_COOLDOWN_SECONDS;
+        else process.env.SCAN_COOLDOWN_SECONDS = v;
+        return getScanCooldownSeconds();
+      };
+      const got = [parse("0"), parse("3"), parse(undefined), parse(""), parse("abc"), parse("-5"), parse("1.5")];
+      if (saved === undefined) delete process.env.SCAN_COOLDOWN_SECONDS;
+      else process.env.SCAN_COOLDOWN_SECONDS = saved;
+      record("Cooldown config", "SCAN_COOLDOWN_SECONDS = 0, 3, unset, '', abc, -5, 1.5", "0, 3, 20, 20, 20, 20, 20 (0 disables)", got.join(", "),
+        got.join(",") === "0,3,20,20,20,20,20");
+    }
+
+    if (cooldown > 0) {
+      await waitOutCooldown();
+      // (a) a second gate scan inside the cooldown is refused and writes nothing
+      const first = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit" });
+      const dirBefore = await lastDirection(4);
+      const evA = await events(), logA = await logsOf(4), vioA = await violations();
+      r = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit" });
+      record("Cooldown: second scan refused", `student 4 gate scan right after another (cooldown ${cooldown}s)`,
+        "429 scan_cooldown, Retry-After set, no new face event / gate log / violation, direction unchanged",
+        `${first.status} then ${r.status} ${r.json.code} retry=${r.json.retryAfterSeconds} header=${r.retryAfter}; events +${(await events()) - evA}, logs +${(await logsOf(4)) - logA}, violations +${(await violations()) - vioA}, last=${await lastDirection(4)}`,
+        first.status === 200 && r.status === 429 && r.json.code === "scan_cooldown" && r.json.retryAfterSeconds > 0 && r.json.retryAfterSeconds <= cooldown &&
+          r.retryAfter === String(r.json.retryAfterSeconds) && typeof r.json.error === "string" && r.json.error.startsWith("Already scanned. Please wait") &&
+          (await events()) === evA && (await logsOf(4)) === logA && (await violations()) === vioA && (await lastDirection(4)) === dirBefore);
+
+      // (c) someone else is not held up by student 4's cooldown
+      const evC = await events();
+      const other = await post({ descriptor: enrolled(5, 1), camera_id: 4, purpose: "entry_exit" });
+      const still = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit" });
+      record("Cooldown: other student unaffected", "student 5 gate scan while student 4 is cooling down", "200 recorded for 5, student 4 still 429",
+        `student 5: ${other.status} ${other.json.result?.direction}; student 4: ${still.status}`,
+        other.status === 200 && other.json.result?.kind === "entry_exit" && still.status === 429 && (await events()) === evC + 1);
+
+      // (b) after the cooldown the scan is accepted and the direction flips
+      await waitOutCooldown();
+      r = await post({ descriptor: exact4, camera_id: 4, purpose: "entry_exit" });
+      record("Cooldown: allowed again after waiting", `student 4 after ${cooldown + 1}s`, `200, direction flips from ${dirBefore}`,
+        `${r.status} ${r.json.result?.direction}`, r.status === 200 && r.json.result?.direction === (dirBefore === "OUT" ? "IN" : "OUT"));
+
+      // (d) the roll call is not subject to the gate cooldown
+      const gate6 = await post({ descriptor: enrolled(6, 1), camera_id: 4, purpose: "entry_exit" });
+      const roll6 = await post({ descriptor: enrolled(6, 1), camera_id: 4, purpose: "attendance" });
+      record("Cooldown: roll call unaffected", "student 6 gate scan, then a roll-call scan right away", "gate 200, roll call 200 present",
+        `${gate6.status} then ${roll6.status} ${roll6.json.result?.status}`,
+        gate6.status === 200 && roll6.status === 200 && roll6.json.result?.status === "present");
+    } else {
+      // (e) 0 disables the cooldown: the same student can be scanned twice in a row
+      const a = await post({ descriptor: enrolled(5, 1), camera_id: 4, purpose: "entry_exit" });
+      const b = await post({ descriptor: enrolled(5, 1), camera_id: 4, purpose: "entry_exit" });
+      record("Cooldown disabled (0)", "student 5 gate scan twice in a row", "both 200, direction flips",
+        `${a.status} ${a.json.result?.direction}, then ${b.status} ${b.json.result?.direction}`,
+        a.status === 200 && b.status === 200 && a.json.result?.direction === "OUT" && b.json.result?.direction === "IN");
+    }
 
     // --- margin rule: a look-alike enrolled as another student ---
     // Student 5 gets three extra samples 0.04 away from student 4's sample #2.

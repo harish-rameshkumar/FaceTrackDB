@@ -1,12 +1,14 @@
 # Test results: face matching
 
-Run with the dev server on, after `npm run qdrant:reset -- --yes`, `npm run qdrant:init` and `npm run seed:faces`:
+Run with the dev server on, after `npm run qdrant:reset -- --yes`, `npm run qdrant:init` and `npm run seed:faces`. The gate scan cooldown (`SCAN_COOLDOWN_SECONDS`) must have the same value for the server and for the test; a short one keeps the run fast:
 
 ```
-cd app && BASE_URL=http://localhost:3000 npm run test:match
+cd app
+SCAN_COOLDOWN_SECONDS=3 npm run dev                                          # terminal 1
+SCAN_COOLDOWN_SECONDS=3 BASE_URL=http://localhost:3000 npm run test:match    # terminal 2
 ```
 
-The script ([app/scripts/test-matching.ts](../app/scripts/test-matching.ts)) sends real HTTP requests to `POST /api/faces/match` with synthetic descriptors, checks the database after each case, and deletes every row it created (and the look-alike enrolment used for the margin rule). Metric: Euclidean distance. Thresholds: `MATCH_MAX_DISTANCE=0.45`, `REVIEW_MAX_DISTANCE=0.60`, margin 0.06. Output of one real run at 13:15 IST:
+The script ([app/scripts/test-matching.ts](../app/scripts/test-matching.ts)) sends real HTTP requests to `POST /api/faces/match` with synthetic descriptors, checks the database after each case, and deletes every row it created (and the look-alike enrolment used for the margin rule). Metric: Euclidean distance. Thresholds: `MATCH_MAX_DISTANCE=0.45`, `REVIEW_MAX_DISTANCE=0.60`, margin 0.06. Output of one real run (cooldown 3 seconds, 11:36 IST):
 
 | Case | Input | Expected | Actual | Result |
 |---|---|---|---|---|
@@ -15,20 +17,34 @@ The script ([app/scripts/test-matching.ts](../app/scripts/test-matching.ts)) sen
 | Random vector | unrelated random vector | no_match, nobody marked | 200 no_match dist=1.281 conf=0 student=null | PASS |
 | Review band | student 6 face + offset 0.5 (expect distance ~0.52) | low_confidence, NOT marked, event kept | 200 low_confidence dist=0.506 conf=0.494; attendance rows=0 | PASS |
 | Duplicate scan | student 4 again, same roll call | 409 FT001, event still logged, still 1 attendance row | 409 FT001; events +1; rows=1 | PASS |
-| No roll call open | student 1 at hostel 1 camera (no session at 13:15 IST) | 409 no_active_session | 409 matched no_active_session | PASS |
+| No roll call open | student 1 at hostel 1 camera (no session at 11:36 IST) | 409 no_active_session | 409 matched no_active_session | PASS |
 | Wrong hostel | student 1 (hostel 1) scanned at hostel 2 camera | 403 FT003 | 403 FT003 | PASS |
 | Outside window (DB) | CALL mark_attendance on a past session | database rejects with FT004 | FT004 | PASS |
-| Gate: first scan | student 4, direction inferred, 13:15 IST | OUT, violation null | 200 matched OUT violation=null | PASS |
-| Gate: return | student 4, IN, 13:15 IST | IN, violation null | 200 IN violation=null | PASS |
+| Gate: first scan | student 4, direction inferred, 11:36 IST | OUT, violation null | 200 matched OUT violation=null | PASS |
+| Gate: return | student 4, IN, 11:36 IST | IN, violation null | 200 IN violation=null | PASS |
 | Gate: duplicate IN | student 4 IN twice | 409 FT022, event still logged | 409 FT022; events +1 | PASS |
+| Cooldown config | SCAN_COOLDOWN_SECONDS = 0, 3, unset, '', abc, -5, 1.5 | 0, 3, 20, 20, 20, 20, 20 (0 disables) | 0, 3, 20, 20, 20, 20, 20 | PASS |
+| Cooldown: second scan refused | student 4 gate scan right after another (cooldown 3s) | 429 scan_cooldown, Retry-After set, no new face event / gate log / violation, direction unchanged | 200 then 429 scan_cooldown retry=3 header=3; events +0, logs +0, violations +0, last=OUT | PASS |
+| Cooldown: other student unaffected | student 5 gate scan while student 4 is cooling down | 200 recorded for 5, student 4 still 429 | student 5: 200 OUT; student 4: 429 | PASS |
+| Cooldown: allowed again after waiting | student 4 after 4s | 200, direction flips from OUT | 200 IN | PASS |
+| Cooldown: roll call unaffected | student 6 gate scan, then a roll-call scan right away | gate 200, roll call 200 present | 200 then 200 present | PASS |
 | Margin rule | student 4 sample #2 with a look-alike of student 5 0.04 away | low_confidence (not auto-matched), nothing marked | 200 low_confidence dist=0.000 margin=0.040; new attendance rows=0 | PASS |
 | Inactive camera | camera 3 (status inactive) | 409 | 409 Camera is not active | PASS |
 | Bad descriptor | 3 numbers instead of 128 | 400 | 400 descriptor must be 128 finite numbers | PASS |
 | Bad purpose | purpose='lunch' | 400 | 400 | PASS |
 | Wrong role | role student | 403 | 403 | PASS |
-| Not signed in | no role header | 401 | 401 | PASS |
+| Not signed in | no session cookie | 401 | 401 | PASS |
 
-17/17 passed
+22/22 passed
+
+The same suite with the cooldown disabled (server and test both started with `SCAN_COOLDOWN_SECONDS=0`): **19/19 passed**. The four cooldown cases are replaced by `Cooldown disabled (0)`: student 5 scanned twice in a row gave `200 OUT, then 200 IN`. After each run the row counts were back to the seed values (13 face events, 5 gate logs, 9 attendance rows, 4 violations, 4 sessions).
+
+Cooldown checks outside the suite (default `SCAN_COOLDOWN_SECONDS`, i.e. 20; one student, two gate scans 2 seconds apart; and a race):
+
+| Check | Expected | Actual |
+|---|---|---|
+| Scan 1, then scan 2 two seconds later | 200, then 429 | `200 recorded OUT`, then `429` with `Retry-After: 18` and `Already scanned. Please wait 18 seconds.`; exactly one gate log row and one face event for the student |
+| 6 simultaneous gate scans of one student, repeated 3 times | exactly one succeeds | 1 x 200 and 5 x 429 `scan_cooldown` each time; exactly 1 gate log row each time |
 
 Not covered by this run:
 - The late-night violation paths (`no_leave` after 20:00, `late_return` after 22:30). The test computes the expected violation from the clock, so only the "no violation" branch was exercised at midday. Those rules are exercised by `db/transactions_demo.sql` scenario A (a 23:05 exit raises `no_leave`).
