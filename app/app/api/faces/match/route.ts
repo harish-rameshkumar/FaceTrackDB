@@ -1,6 +1,6 @@
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
-import { callInSavepoint, classify, getThresholds, mapProcedureError, searchNearest, toConfidence } from "@/lib/matching";
+import { callInSavepoint, classify, getScanCooldownSeconds, getThresholds, mapProcedureError, searchNearest, secondsUntilGateScanAllowed, toConfidence } from "@/lib/matching";
 import { toDescriptor } from "@/lib/vectors";
 
 interface MatchBody {
@@ -58,6 +58,30 @@ export async function POST(request: Request) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+
+      // Gate scans only: a student identified with confidence may not be scanned again within
+      // SCAN_COOLDOWN_SECONDS. The check runs first, so a rejected scan writes nothing at all
+      // (no face event, no gate log, no violation) and cannot flip IN/OUT.
+      if (purpose === "entry_exit" && outcome === "matched" && studentId !== null) {
+        const cooldown = getScanCooldownSeconds();
+        if (cooldown > 0) {
+          const wait = await secondsUntilGateScanAllowed(client, studentId, cooldown);
+          if (wait !== null) {
+            const who = await client.query("SELECT student_id, roll_no, name FROM students WHERE student_id = $1", [studentId]);
+            await client.query("ROLLBACK");
+            return Response.json(
+              {
+                error: `Already scanned. Please wait ${wait} second${wait === 1 ? "" : "s"}.`,
+                code: "scan_cooldown",
+                retryAfterSeconds: wait,
+                student: who.rows[0] ?? null,
+              },
+              { status: 429, headers: { "Retry-After": String(wait) } },
+            );
+          }
+        }
+      }
+
       const ev = await client.query<{ event_id: number; event_time: string }>(
         `INSERT INTO face_events (camera_id, student_id, confidence, outcome)
          VALUES ($1, $2, $3, $4)

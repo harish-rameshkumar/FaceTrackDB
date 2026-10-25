@@ -27,6 +27,52 @@ export function getThresholds(): Thresholds {
   return { matchMax, reviewMax, marginMin: MARGIN_MIN };
 }
 
+export const DEFAULT_SCAN_COOLDOWN_SECONDS = 20;
+const warnedCooldownValues = new Set<string>();
+
+/**
+ * Minimum seconds between two gate (entry/exit) scans of the same student, from
+ * SCAN_COOLDOWN_SECONDS. 0 disables it. A missing value means the default; an
+ * invalid value falls back to the default with a one-time server-side warning.
+ */
+export function getScanCooldownSeconds(): number {
+  const raw = process.env.SCAN_COOLDOWN_SECONDS?.trim();
+  if (raw === undefined || raw === "") return DEFAULT_SCAN_COOLDOWN_SECONDS;
+  if (/^\d{1,6}$/.test(raw)) return Number(raw);
+  if (!warnedCooldownValues.has(raw)) {
+    warnedCooldownValues.add(raw);
+    console.warn(`SCAN_COOLDOWN_SECONDS="${raw}" is not a non-negative integer; using ${DEFAULT_SCAN_COOLDOWN_SECONDS}`);
+  }
+  return DEFAULT_SCAN_COOLDOWN_SECONDS;
+}
+
+/**
+ * Gate-scan cooldown check. Call it inside the transaction, BEFORE inserting
+ * anything for the scan. It takes a per-student advisory lock (held until the
+ * transaction ends), so two simultaneous scans of one student take turns and
+ * the second sees the first one's gate log row. The two-integer key does not
+ * collide with the single-class locks used inside the procedures.
+ *
+ * The age is computed in PostgreSQL on the same basis that
+ * entry_exit_log.event_time uses: wall-clock time in the session time zone
+ * (Asia/Kolkata) stored as TIMESTAMP, so Node's clock is never compared with
+ * the database's. Returns the seconds still to wait, or null if the scan may go on.
+ */
+export async function secondsUntilGateScanAllowed(client: PoolClient, studentId: number, cooldownSeconds: number): Promise<number | null> {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('gate_cooldown'), $1)", [studentId]);
+  const { rows } = await client.query<{ remaining: number }>(
+    `SELECT CEIL($2::numeric - EXTRACT(EPOCH FROM (clock_timestamp()::timestamp - event_time)))::int AS remaining
+     FROM entry_exit_log
+     WHERE student_id = $1
+     ORDER BY event_time DESC, log_id DESC
+     LIMIT 1`,
+    [studentId, cooldownSeconds],
+  );
+  const remaining = rows[0]?.remaining;
+  if (remaining === undefined || remaining <= 0) return null;
+  return Math.min(remaining, cooldownSeconds); // a log row dated in the future still waits at most one cooldown
+}
+
 export interface Candidate {
   studentId: number;
   faceProfileId: number | null;
