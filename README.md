@@ -12,19 +12,20 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
    cp .env.example .env            # read by docker compose and db/load_b.sh
    cp .env app/.env.local          # read by the Next.js app and the scripts
    ```
-   Edit both: set real values for `POSTGRES_PASSWORD` (and the same password inside `DATABASE_URL`), and set `QDRANT_API_KEY` to a long random string (for example `openssl rand -hex 16`).
+   Edit both: set real values for `POSTGRES_PASSWORD` (and the same password inside `DATABASE_URL`), set `QDRANT_API_KEY` to a long random string (for example `openssl rand -hex 16`), and set `JWT_SECRET` to a random string of **at least 32 characters** (for example `openssl rand -hex 32`); login refuses to work with a shorter or missing secret, and `app/.env.local` needs the same values.
 2. **Start the databases** (ports are bound to 127.0.0.1 only):
    ```bash
    docker compose up -d
    ```
    If the containers already exist from an older compose file, recreate them so the new port binding and Qdrant API key take effect; data volumes are kept: `docker compose down && docker compose up -d`.
-3. **Load the base SQL** in this order (Person A's files; `load_all.ps1` does the same on Windows):
+3. **Load the base SQL** in this order (Person A's files; `load_all.ps1` does the same on Windows). `demo_passwords.sql` must come after `seed.sql`: the seed has placeholder password hashes, so nobody can sign in without it.
    ```bash
    set -a; . ./.env; set +a
-   for f in settings schema seed triggers procedures; do
+   for f in settings schema seed triggers procedures demo_passwords; do
      docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" < db/$f.sql
    done
    ```
+   **Warning: do not reload `db/schema.sql` (or run `load_all.ps1`) on a database with enrolled faces without re-enrolling.** It drops `face_profiles`, which orphans every vector in Qdrant. If you do reload, run `cd app && npm run qdrant:reset -- --yes`, then enrol everyone again at `/enrol` (or `npm run seed:faces` for the synthetic test students). To only set the demo passwords on an existing database, run `db/demo_passwords.sql` alone: it just updates `users`.
 4. **Load the reporting SQL** (views, example queries, full-text search). Re-run it whenever `schema.sql` is reloaded, because that drops the tables and their views:
    ```bash
    ./db/load_b.sh            # add --demo for the EXPLAIN before/after demo
@@ -37,7 +38,7 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
    npm run seed:faces        # synthetic descriptors for the 6 seeded students (--reset to redo)
    npm run dev               # http://localhost:3000
    ```
-6. **Acting as a role.** Real login is not wired in yet. `app/lib/auth-stub.ts` (development only, refuses to work in production) reads a cookie or header. In the browser console on the site: `document.cookie = "dev_role=admin; path=/"` (also `security`, `warden`). With curl: `-H "x-dev-role: admin"`.
+6. **Signing in.** Open <http://localhost:3000/login>. Every seeded account has the shared demo password written in `db/demo_passwords.sql` (development only; change it for anything real). Seeded accounts by role: `admin1@facetrack.test`, `security1@facetrack.test`, `warden1@facetrack.test`, student `arun.kumar@facetrack.test`, parent `parent.senthil@facetrack.test` (more in `db/seed.sql`). Login sets an HttpOnly session cookie (JWT signed with `JWT_SECRET`, 8 hours); with curl use `POST /api/login` and send the cookie back. The old dev-only `x-dev-role` header and `dev_role` cookie no longer exist.
 
 ### Pages and endpoints
 

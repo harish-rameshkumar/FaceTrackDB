@@ -9,7 +9,7 @@ Hi Harshit, here is where my side stands and what I need from you. Everything is
 - `app/lib/db.ts` (one shared pg pool, Asia/Kolkata session timezone, TIMESTAMP/DATE returned as strings), `.mailmap`, localhost-only ports, Qdrant API key.
 
 **What I need from you**
-1. **Real auth replacing `app/lib/auth-stub.ts`.** It is the only auth code of mine. Keep these exports and shapes and nothing else changes: `requireRole(roles)` returns `{ userId, role }` and throws `AuthError` (status 401/403); `getCurrentUser()`; `authErrorResponse(e)` turns an `AuthError` into a JSON response. `userId` must be `users.user_id` (I use it for `face_events.reviewed_by`). Roles used by my code: admin, security, warden. The stub refuses to run in production; it reads the `x-dev-role` header or `dev_role` cookie.
+1. ~~Real auth replacing `app/lib/auth-stub.ts`.~~ **Done**: real JWT login is in `app/lib/auth.ts` and `app/lib/session.ts`, with the same exports, and my routes and pages use it unchanged. `auth-stub.ts` is now only a re-export and can be deleted once nothing imports it.
 2. **Roll-call sessions.** Matching for attendance needs an `attendance_sessions` row for the hostel covering the current IST time. The seed has none for today, and nothing creates them. Please add a way to create them (warden/admin page or a job); I tested by inserting one.
 3. **Decide about a `purpose` column on `face_events`** (optional). When a warden confirms a low-confidence scan, I only update the event (`outcome='matched'`, `reviewed_by`). I do not call `mark_attendance` / `record_entry_exit` because the event does not record whether it was a roll-call or gate scan. Proposed:
    ```sql
