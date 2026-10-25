@@ -3,6 +3,7 @@ const links = [
   { href: "/enrol", title: "Enrol faces", who: "Admin", text: "Capture a student's face and store it for recognition." },
   { href: "/gate", title: "Gate and roll call", who: "Security", text: "Scan faces at the gate or during the evening roll call." },
   { href: "/warden/review", title: "Review queue", who: "Warden", text: "Decide the scans the system was not sure about." },
+  { href: "/student/history", title: "My history", who: "Student", text: "Your attendance and gate entry and exit history." },
   { href: "/student/leave", title: "My leave", who: "Student", text: "Request leave and follow the decision." },
   { href: "/parent/leave", title: "Leave requests", who: "Parent", text: "Approve or reject your ward's leave requests." },
   { href: "/violations", title: "Violations", who: "Student, parent, warden", text: "Late returns, missed roll calls and leaving without leave." },
