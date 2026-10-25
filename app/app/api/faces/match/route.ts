@@ -1,4 +1,4 @@
-import { authErrorResponse, requireRole } from "@/lib/auth-stub";
+import { authErrorResponse, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { callInSavepoint, classify, getThresholds, mapProcedureError, searchNearest, toConfidence } from "@/lib/matching";
 import { toDescriptor } from "@/lib/vectors";

@@ -1,20 +1,22 @@
-import Link from "next/link";
 import { Suspense } from "react";
+import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
-import { AuthError, requireRole } from "@/lib/auth-stub";
+import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { EnrolForm } from "./EnrolForm";
 
 export default function EnrolPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl p-8">
-      <Link href="/" className="text-sm underline">Home</Link>
-      <h1 className="mt-2 text-2xl font-semibold">Face enrolment</h1>
-      <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Admin only. Captures several frames and stores each face as a 128-number vector.</p>
-      <Suspense fallback={<p className="text-sm">Loading…</p>}>
-        <EnrolContent />
-      </Suspense>
-    </main>
+    <>
+      <AppHeader />
+      <main className="mx-auto w-full max-w-3xl p-8">
+        <h1 className="text-2xl font-semibold">Face enrolment</h1>
+        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Admin only. Captures several frames and stores each face as a 128-number vector.</p>
+        <Suspense fallback={<p className="text-sm">Loading…</p>}>
+          <EnrolContent />
+        </Suspense>
+      </main>
+    </>
   );
 }
 

@@ -23,6 +23,8 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   security: [{ href: "/gate", label: "Gate" }],
   admin: [
     { href: "/enrol", label: "Enrol faces" },
+    { href: "/gate", label: "Gate" },
+    { href: "/warden/review", label: "Review scans" },
     { href: "/violations", label: "Violations" },
   ],
 };
