@@ -18,9 +18,9 @@ const SECONDS_PER_PROMPT = 2;
 
 interface FrameReport { index: number; ok: boolean; message?: string }
 
-export function EnrolForm({ students }: { students: Student[] }) {
+export function EnrolForm({ students, fixedStudentId, replace = false }: { students: Student[]; fixedStudentId?: number; replace?: boolean }) {
   const { videoRef, ready, error: cameraError } = useCamera();
-  const [studentId, setStudentId] = useState<number | "">("");
+  const [studentId, setStudentId] = useState<number | "">(fixedStudentId ?? "");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0); // number of frames captured so far
   const [countdown, setCountdown] = useState(0);
@@ -46,6 +46,7 @@ export function EnrolForm({ students }: { students: Student[] }) {
       setCountdown(0);
       const form = new FormData();
       form.append("student_id", String(studentId));
+      if (replace) form.append("replace", "1");
       frames.forEach((f, i) => form.append("frames", f, `frame${i}.jpg`));
       const res = await fetch("/api/faces/enrol", { method: "POST", body: form });
       const json = await res.json();
@@ -73,7 +74,7 @@ export function EnrolForm({ students }: { students: Student[] }) {
           className="rounded border border-zinc-300 bg-transparent p-2 dark:border-zinc-700"
           value={studentId}
           onChange={(e) => setStudentId(e.target.value === "" ? "" : Number(e.target.value))}
-          disabled={busy}
+          disabled={busy || fixedStudentId !== undefined}
         >
           <option value="">Choose a student…</option>
           {students.map((s) => (
@@ -100,7 +101,7 @@ export function EnrolForm({ students }: { students: Student[] }) {
           disabled={!ready || busy || studentId === ""}
           className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black"
         >
-          {busy ? "Capturing…" : `Capture ${PROMPTS.length} frames and enrol`}
+          {busy ? "Capturing…" : `Capture ${PROMPTS.length} frames and ${replace ? "re-enrol" : "enrol"}`}
         </button>
         {busy && <progress value={step} max={PROMPTS.length} className="h-2 flex-1" aria-label="Capture progress" />}
       </div>
