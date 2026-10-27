@@ -254,6 +254,69 @@ SELECT pg_temp.expect_error('[close_attendance_session FT008] session has not en
 SELECT pg_temp.expect_error('[close_attendance_session FT002] session does not exist',
   $q$CALL close_attendance_session(99999, NULL, NULL)$q$, 'FT002');
 
+-- =====================================================================
+-- 6. HARDENING (migrations 001-003): resolved_at, token_version, login limits
+-- =====================================================================
+-- violations.resolved_at must be set exactly when a violation is resolved
+SELECT pg_temp.expect_error('[resolved_at] resolving without a resolved_at is refused',
+  $q$UPDATE violations SET status = 'resolved', resolved_by = 1 WHERE violation_id = 1$q$, '23514');
+SELECT pg_temp.expect_error('[resolved_at] an open violation cannot have a resolved_at',
+  $q$UPDATE violations SET resolved_at = localtimestamp WHERE violation_id = 3$q$, '23514');
+SELECT pg_temp.expect_ok('[resolved_at] resolving with resolved_by and resolved_at works',
+  $q$UPDATE violations SET status = 'resolved', resolved_by = 1, resolved_at = localtimestamp WHERE violation_id = 1$q$);
+SELECT pg_temp.expect_value('[resolved_at] ...and the time is stored',
+  $q$SELECT (resolved_at IS NOT NULL)::text FROM violations WHERE violation_id = 1$q$, 'true');
+SELECT pg_temp.expect_value('[resolved_at] the violation resolved before the column existed has one (seed value or migration backfill)',
+  $q$SELECT (resolved_at IS NOT NULL)::text FROM violations WHERE violation_id = 2$q$, 'true');
+SELECT pg_temp.expect_value('[resolved_at] open violations have none',
+  $q$SELECT count(*)::text FROM violations WHERE status = 'open' AND resolved_at IS NOT NULL$q$, '0');
+
+-- users.token_version (session revocation)
+SELECT pg_temp.expect_value('[token_version] starts at 0',
+  $q$SELECT token_version::text FROM users WHERE user_id = 1$q$, '0');
+SELECT pg_temp.expect_error('[token_version] cannot be NULL',
+  $q$UPDATE users SET token_version = NULL WHERE user_id = 1$q$, '23502');
+SELECT pg_temp.expect_value('[token_version] adding 1 changes it',
+  $q$UPDATE users SET token_version = token_version + 1 WHERE user_id = 1 RETURNING token_version::text$q$, '1');
+
+-- login rate limiting (login_attempts, login_retry_after, login_record)
+SELECT pg_temp.expect_value('[login limit] a clean email is allowed',
+  $q$SELECT login_retry_after('lock@x.test', '10.0.0.9')::text$q$, '0');
+SELECT pg_temp.expect_ok('[login limit] record 4 failures',
+  $q$SELECT login_record('lock@x.test', '10.0.0.9', false) FROM generate_series(1, 4)$q$);
+SELECT pg_temp.expect_value('[login limit] 4 failures do not lock yet',
+  $q$SELECT login_retry_after('lock@x.test', '10.0.0.9')::text$q$, '0');
+SELECT pg_temp.expect_ok('[login limit] record the 5th failure',
+  $q$SELECT login_record('lock@x.test', '10.0.0.9', false)$q$);
+SELECT pg_temp.expect_value('[login limit] 5 failures lock the email for up to 15 minutes',
+  $q$SELECT (login_retry_after('lock@x.test', '10.0.0.9') BETWEEN 1 AND 900)::text$q$, 'true');
+SELECT pg_temp.expect_value('[login limit] the lock ignores letter case',
+  $q$SELECT (login_retry_after('LOCK@X.test', '10.0.0.8') > 0)::text$q$, 'true');
+SELECT pg_temp.expect_value('[login limit] another email from the same address is not locked',
+  $q$SELECT login_retry_after('other@x.test', '10.0.0.9')::text$q$, '0');
+SELECT pg_temp.expect_ok('[login limit] a successful login is recorded',
+  $q$SELECT login_record('lock@x.test', '10.0.0.9', true)$q$);
+SELECT pg_temp.expect_value('[login limit] ...and clears the email counter',
+  $q$SELECT login_retry_after('lock@x.test', '10.0.0.9')::text$q$, '0');
+SELECT pg_temp.expect_ok('[login limit] 5 failures for another email',
+  $q$SELECT login_record('old@x.test', '10.0.0.5', false) FROM generate_series(1, 5)$q$);
+SELECT pg_temp.expect_value('[login limit] that email is locked',
+  $q$SELECT (login_retry_after('old@x.test', '10.0.0.5') > 0)::text$q$, 'true');
+SELECT pg_temp.expect_ok('[login limit] 16 minutes pass',
+  $q$UPDATE login_attempts SET attempted_at = attempted_at - interval '16 minutes' WHERE email = 'old@x.test'$q$);
+SELECT pg_temp.expect_value('[login limit] the lock has expired',
+  $q$SELECT login_retry_after('old@x.test', '10.0.0.5')::text$q$, '0');
+SELECT pg_temp.expect_ok('[login limit] 5 failures for an email that exists and 5 for one that does not',
+  $q$SELECT login_record(e, '10.0.0.3', false) FROM unnest(ARRAY['warden1@facetrack.test', 'nobody@x.test']) e, generate_series(1, 5)$q$);
+SELECT pg_temp.expect_value('[login limit] known and unknown emails are locked the same way',
+  $q$SELECT (login_retry_after('warden1@facetrack.test', '10.0.0.4') > 0 AND login_retry_after('nobody@x.test', '10.0.0.4') > 0)::text$q$, 'true');
+SELECT pg_temp.expect_ok('[login limit] 20 failures from one address, 20 different emails',
+  $q$SELECT login_record('u' || g || '@x.test', '10.0.0.77', false) FROM generate_series(1, 20) g$q$);
+SELECT pg_temp.expect_value('[login limit] that address is locked for a new email',
+  $q$SELECT (login_retry_after('fresh@x.test', '10.0.0.77') > 0)::text$q$, 'true');
+SELECT pg_temp.expect_value('[login limit] another address is not',
+  $q$SELECT login_retry_after('fresh@x.test', '10.0.0.78')::text$q$, '0');
+
 \o
 
 -- =====================================================================

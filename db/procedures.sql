@@ -273,3 +273,56 @@ BEGIN
             p_leave_id, v_leave.student_id USING ERRCODE = 'FT034';
     END;
 END $$;
+
+-- ---------------------------------------------------------------------
+-- Login rate limiting (table login_attempts). Used by POST /api/login.
+--   login_retry_after(email, ip): seconds to wait, 0 = may try.
+--     5 failures per email within 15 minutes, or 20 per IP, lock; a successful
+--     login clears the email's counter.
+--   login_record(email, ip, succeeded): records one evaluated attempt.
+-- The same text lives in db/migrations/003_login_attempts.sql (for databases that
+-- must not be reloaded); db/test_cases.sql checks both.
+-- ---------------------------------------------------------------------
+-- Seconds the caller must still wait (0 = login may be tried).
+CREATE OR REPLACE FUNCTION login_retry_after(p_email TEXT, p_ip TEXT)
+RETURNS INT
+LANGUAGE sql STABLE AS $$
+    SELECT GREATEST(
+        COALESCE((
+            SELECT CASE WHEN count(*) >= 5
+                        THEN ceil(extract(epoch FROM (min(attempted_at) + interval '15 minutes' - now())))::INT END
+            FROM (
+                SELECT attempted_at FROM login_attempts
+                WHERE email = lower(p_email) AND NOT succeeded
+                  AND attempted_at > now() - interval '15 minutes'
+                  AND attempted_at > COALESCE((SELECT max(s.attempted_at) FROM login_attempts s
+                                               WHERE s.email = lower(p_email) AND s.succeeded), '-infinity')
+                ORDER BY attempted_at DESC
+                LIMIT 5
+            ) recent
+        ), 0),
+        COALESCE((
+            SELECT CASE WHEN count(*) >= 20
+                        THEN ceil(extract(epoch FROM (min(attempted_at) + interval '15 minutes' - now())))::INT END
+            FROM (
+                SELECT attempted_at FROM login_attempts
+                WHERE ip = p_ip AND NOT succeeded
+                  AND attempted_at > now() - interval '15 minutes'
+                ORDER BY attempted_at DESC
+                LIMIT 20
+            ) recent_ip
+        ), 0),
+        0);
+$$;
+
+-- Records one evaluated attempt, and now and then deletes rows older than a day.
+CREATE OR REPLACE FUNCTION login_record(p_email TEXT, p_ip TEXT, p_succeeded BOOLEAN)
+RETURNS VOID
+LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO login_attempts (email, ip, succeeded)
+    VALUES (left(lower(p_email), 255), left(p_ip, 64), p_succeeded);
+    IF random() < 0.02 THEN
+        DELETE FROM login_attempts WHERE attempted_at < now() - interval '1 day';
+    END IF;
+END $$;

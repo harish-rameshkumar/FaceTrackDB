@@ -130,11 +130,11 @@ INSERT INTO leave_requests (leave_id, student_id, start_date, end_date, reason, 
     (4, 3, '2026-10-18', '2026-10-19', 'Home visit',                 'rejected', 4,    '2026-10-17 19:30:00');
 
 -- ---------- violations ----------
-INSERT INTO violations (violation_id, student_id, log_id, session_id, type, details, raised_at, status, resolved_by) VALUES
-    (1, 3, 4,    NULL, 'late_return',       'Returned more than two hours after curfew without permission', '2026-10-21 00:40:25', 'open',     NULL),
-    (2, 3, NULL, 1,    'missed_attendance', 'Absent at the evening roll call on 20 October',                '2026-10-20 22:30:05', 'resolved', 1),
-    (3, 6, 5,    NULL, 'no_leave',          'Left the hostel in the evening with no approved leave',        '2026-10-21 20:50:35', 'open',     NULL),
-    (4, 6, NULL, 3,    'missed_attendance', 'Absent at the evening roll call on 21 October',                '2026-10-21 22:00:05', 'open',     NULL);
+INSERT INTO violations (violation_id, student_id, log_id, session_id, type, details, raised_at, status, resolved_by, resolved_at) VALUES
+    (1, 3, 4,    NULL, 'late_return',       'Returned more than two hours after curfew without permission', '2026-10-21 00:40:25', 'open',     NULL, NULL),
+    (2, 3, NULL, 1,    'missed_attendance', 'Absent at the evening roll call on 20 October',                '2026-10-20 22:30:05', 'resolved', 1,    '2026-10-21 09:15:00'),
+    (3, 6, 5,    NULL, 'no_leave',          'Left the hostel in the evening with no approved leave',        '2026-10-21 20:50:35', 'open',     NULL, NULL),
+    (4, 6, NULL, 3,    'missed_attendance', 'Absent at the evening roll call on 21 October',                '2026-10-21 22:00:05', 'open',     NULL, NULL);
 
 -- ---------- move the id counters past the seeded ids ----------
 SELECT setval(pg_get_serial_sequence('hostels',             'hostel_id'),    (SELECT MAX(hostel_id)    FROM hostels));
