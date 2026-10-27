@@ -12,7 +12,9 @@ Triggers, stored procedures, transactions and a concurrency test for the Postgre
 | `db/triggers.sql` | Triggers and supporting constraints |
 | `db/procedures.sql` | The four stored procedures |
 | `db/transactions_demo.sql` | Three transaction scenarios, repeatable (each ends in ROLLBACK) |
-| `db/load_all.ps1` | Runs the five files above in order |
+| `db/migrations/*.sql` | Idempotent upgrades (`resolved_at`, `token_version`, `login_attempts` and its two functions). `schema.sql` and `procedures.sql` already contain the same objects; the migrations exist so a database that must be kept can be upgraded without reloading |
+| `db/load_all.ps1` | Runs the five files above in order (Windows) |
+| `db/load_all.sh`, `db/migrate.sh` | macOS/Linux: everything in order incl. migrations, demo passwords and `load_b.sh`; refuses to wipe enrolled faces without `--yes`. `migrate.sh` alone upgrades an existing database |
 
 Load order matters: `settings, schema, seed, triggers, procedures`. `schema.sql` drops the tables, which also drops their triggers, so after reloading the schema always run `triggers.sql` again. `load_all.ps1` does all of it:
 
@@ -133,7 +135,17 @@ try {
 | FT034 | Approving would overlap another approved leave | 409 |
 | FT040 | A user id has the wrong role for this column | 422 |
 
+FT050 to FT055 and FT060 to FT061 come from `db/b_register.sql` (registration, deletion rules, roll-call creation). The app never sends the database's own message text: every code has a fixed message in `app/lib/db-errors.ts`.
+
 Standard PostgreSQL codes can also appear: `23505` unique violation, `23503` foreign key, `23514` CHECK, `23P01` exclusion.
+
+## 4b. Login rate limiting
+
+`login_retry_after(email, ip)` returns the seconds to wait (0 = allowed) and `login_record(email, ip, succeeded)` records an attempt. 5 failures for one email within 15 minutes lock that email until the 5th most recent failure is 15 minutes old; a success clears the email's counter; 20 failures from one address lock the address. Known and unknown emails are treated identically. The app checks it before looking the email up.
+
+## 4c. Leave cancellation
+
+A student may cancel (DELETE) their own request **only while it is pending**; the app does it with `DELETE ... WHERE status = 'pending'` so it cannot race a parent's decision. A decided request is never deleted by the app, and `fn_leave_guard` still refuses to change it.
 
 ## 5. Transactions
 
