@@ -12,6 +12,7 @@ type Violation = {
   details: string | null;
   raisedAt: string;
   status: "open" | "resolved";
+  resolvedAt: string | null;
   resolvedByEmail: string | null;
 };
 
@@ -100,7 +101,10 @@ export default function ViolationsList() {
                 </button>
               )}
               {v.status === "resolved" && v.resolvedByEmail && (
-                <p className="mt-2 text-sm text-gray-500">Resolved by {v.resolvedByEmail}</p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Resolved by {v.resolvedByEmail}
+                  {v.resolvedAt ? ` on ${v.resolvedAt.slice(0, 16)}` : ""}
+                </p>
               )}
               {rowError?.id === v.id && (
                 <p role="alert" className="mt-2 text-sm text-red-600">

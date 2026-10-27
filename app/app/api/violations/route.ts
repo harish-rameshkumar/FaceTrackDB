@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
     const { rows } = await getPool().query(
       `SELECT v.violation_id AS id, v.student_id, s.name AS student_name, s.roll_no,
-              v.type, v.details, v.raised_at, v.status,
+              v.type, v.details, v.raised_at, v.status, v.resolved_at,
               ru.email AS resolved_by_email
        FROM violations v
        JOIN students s ON s.student_id = v.student_id
@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         details: r.details,
         raisedAt: r.raised_at,
         status: r.status,
+        resolvedAt: r.resolved_at,
         resolvedByEmail: r.resolved_by_email,
       })),
     });
