@@ -46,7 +46,8 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 |---|---|---|
 | `/login`, `POST /api/login`, `/api/logout`, `/api/me` | everyone | sign in / out (Person A) |
 | `/student/leave`, `/parent/leave`, `/violations` | student, parent, warden/admin (violations) | leave requests and decisions, violations list (Person A) |
-| `/warden` | warden, admin | dashboard: students inside/outside, on leave, open violations, scans waiting for review, presence and attendance tables with filters, monthly attendance per hostel |
+| `/warden` | warden, admin | dashboard: presence and attendance tables with filters, open violations, monthly attendance per hostel (the summary cards were removed; scans waiting for review are on `/warden/review`) |
+| `/reports`, `/reports/present` | warden, admin | 11 SQL-driven reports with charts, filters (date range, hostel), a **presentation mode** (full-screen slides, arrow keys) and print/PDF export; each slide has the SQL concept it uses and a "Show query" panel |
 | `/warden/search` | warden, admin | full-text search over violation details and leave reasons, ranked with highlighted matches |
 | `/warden/review` | warden, admin | confirm or reject low-confidence scans |
 | `/enrol` | admin | capture frames from the webcam, store face vectors |
@@ -75,6 +76,8 @@ A match is also sent to the warden when another student's face is less than 0.06
 If you ever change the vector space or metric, run `cd app && npm run qdrant:reset -- --yes` (prints what it will delete, then deletes the `face_profiles` rows and recreates the collection; scan history is kept) and re-enrol everyone, or `npm run seed:faces` for the synthetic test students.
 
 ### Tests
+
+Reports: SQL fixture test `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_reports_tests.sql` (16 checks with known data, rolls back) and page tests `BASE_URL=http://localhost:3000 npm run test:reports` (access, bad filters, empty range, no raw errors; set `EXPECT_HISTORY_NOTE=1` or `0`).
 
 ```bash
 cd app

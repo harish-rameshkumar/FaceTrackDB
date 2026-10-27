@@ -131,3 +131,68 @@ Checked with curl against `next dev`, logged in through `POST /api/login` as the
 2. Layout and look of `/warden` and `/warden/search` (card grid, tables on a narrow window, dark mode), and that the highlighted words are visibly marked.
 3. The filter forms by clicking: choosing a hostel and pressing Apply updates the URL and the tables; Reset clears them; the search form works with Enter.
 4. The warden confirm/reject buttons and the roll-call scan with a camera (unchanged and still not hand-tested).
+
+# Test results: reports (Stage 3)
+
+Run on 2026-10-27 against a scratch PostgreSQL database loaded from the SQL files (`./db/load_b.sh --demo`, no errors on a second load either), a production build (`next start`) on port 3200, and real Google Chrome driven by puppeteer-core for the visual checks. The real database was not touched. Nothing in the existing schema changed, so `db/test_cases.sql` still passes **71 of 71** (run on a fresh seeded database).
+
+## SQL: `db/b_reports_tests.sql` (fixture with known data, rolled back)
+Builds a small hostel (3 students, 3 roll calls, gate trips, violations, leave requests, face events), calls every report for that hostel only and compares the whole result with the expected rows. Includes the HAVING threshold, RANK ties, zero-filled hours/bands, empty ranges and the hostel filter.
+```
+                           name                            | result | detail 
+-----------------------------------------------------------+--------+--------
+ attendance_by_hostel_month (CTE)                          | PASS   | 
+ attendance report respects the date range                 | PASS   | 
+ violations_by_type_hostel (GROUP BY / HAVING)             | PASS   | 
+ HAVING hides groups below p_min                           | PASS   | 
+ cumulative_violations (window SUM OVER)                   | PASS   | 
+ late_return_rank (RANK / DENSE_RANK)                      | PASS   | 
+ gate_traffic_by_hour (GROUP BY hour, 48 rows incl. zeros) | PASS   | 
+ time_outside (LEAD via v_report_trips)                    | PASS   | 
+ leave_summary (FILTER, percentile_cont)                   | PASS   | 
+ recognition_outcomes (FILTER by week)                     | PASS   | 
+ similarity_distribution (width_bucket, 30 rows)           | PASS   |
+```
+16/16 passed.
+
+## Pages: `npm run test:reports`
+Run after `npm run demo:history -- --days 30 --yes` (so `EXPECT_HISTORY_NOTE=1`).
+
+| Case | Expected | Actual | Result |
+|---|---|---|---|
+| Access to /reports | student, parent, security, anonymous denied; warden and admin open | student:denied parent:denied security:denied anonymous:denied warden:open admin:open | PASS |
+| Access to /reports/present | student, parent, security, anonymous denied; warden and admin open | student:denied parent:denied security:denied anonymous:denied warden:open admin:open | PASS |
+| /reports has a section for every report | 11 sections | 11 found | PASS |
+| Each slide states its SQL concept and has the query | 11 'SQL concept used' labels, each with a query panel | 11 labels, 11 query panels, CREATE FUNCTION in page: true | PASS |
+| The shown query is read from db/b_reports.sql | a line of the file appears in the page | RETURNS TABLE (word TEXT, source TEXT, occurrences INT) | PASS |
+| Presentation mode has controls and slides | Next / Previous buttons, Full screen, Print | Next:true Previous:true Full screen:true Print / PDF:true | PASS |
+| /reports has the filters and the presentation link | date range, hostel, link | from:true to:true hostel:true link:true | PASS |
+| Bad filter values are ignored | 14 requests: HTTP 200, report page still shown, no raw error text | 14/14 ok | PASS |
+| A backwards range is swapped, not rejected | page shows 2026-01-01 to 2026-12-31 | shown | PASS |
+| An empty range says 'No data for this range' | 11 reports, no raw errors | 11 messages, raw errors: false | PASS |
+| The hostel filter narrows the data | the page for one hostel differs from all hostels and names it | 2 hostels; differs: true | PASS |
+| Generated demo history is labelled | note shown (EXPECT_HISTORY_NOTE=1) | note shown: true | PASS |
+| The generated-history note only shows for ranges that overlap it | no note for a 2001 range | note shown: false | PASS |
+| /warden has no summary cards, keeps filters and tables | none of the 5 card labels; filters and 'Who is where' present | cards: 0, filters: true, table: true | PASS |
+
+14/14 passed. Two real bugs were found by this test and fixed before it passed: an impossible date such as `2026-02-30` made the page show the generic error instead of being ignored, and the two zero-filled reports (gate traffic, similarity) never counted as "no data".
+
+## Demo history: `npm run demo:history`
+- Without `--yes`: prints what it would do and changes nothing (exit 1).
+- On a database with 0 students: refuses ("Only 0 student(s) exist. Demo history needs at least 4").
+- On the 6 sample students, `--days 30 --yes`: 60 roll calls, 154 marks through `mark_attendance`, 26 absent when closing, 151 gate crossings through `record_entry_exit`, 368 face events, 5 leave requests, 25 violations (8 resolved), in about one second, in one transaction. Reports then show the data and the "Includes generated demo history" note.
+- A second run refuses ("Generated history already exists").
+
+## Checked in real Chrome (headless, 1366x900)
+- Keyboard navigation in `/reports/present`: ArrowRight x3 moved to slides 2, 3, 4; ArrowLeft back to 3; End to 11/11; Home to 1/11; the URL hash followed (`#slide-4`...). It works once the page has hydrated (about 2 seconds after load in this environment); keys pressed earlier do nothing.
+- All 11 slides rendered with chart, key numbers, SQL-concept label and legend, in light and dark mode (checked slides 1-11 light, slides 1-2 dark); no console errors.
+- The empty range (`from=2001-01-01&to=2001-01-31`) shows "No data for this range" with the query still available.
+- Print: with print media emulated, the page produced an **11-page A4 landscape PDF**, one slide per page, light colours, no buttons or query panels (page 1 inspected as an image).
+- A bug found this way and fixed: a custom line marker drew stray squares along the top of the cumulative-violations chart for days on which a hostel had no point.
+
+## Not verified (needs you in a real browser)
+- Safari/Firefox rendering and the browser's own Print dialog (only Chrome's print-to-PDF was exercised).
+- Full-screen mode (`F`): the code calls the browser's full-screen API; headless Chrome cannot show it.
+- Charts on a phone-width screen, and with a screen reader.
+- Whether the generated demo numbers look right for your presentation (they are random but seeded).
+

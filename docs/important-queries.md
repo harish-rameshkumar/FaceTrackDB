@@ -83,3 +83,24 @@ All queries live in [db/b_queries.sql](../db/b_queries.sql) and [db/b_search.sql
 - **FTS 1** `to_tsquery('curfew | leave')` over `violations.details`, ranked by `ts_rank`: violations 1 and 3 (rank 0.0304).
 - **FTS 2** `absent & roll & call` with `ts_headline`: `[Absent] at the evening [roll] [call] on 20 October` (rank 0.2595).
 - **FTS 3** `medic:* | wedding` over `leave_requests.reason`: Medical appointment, Cousin wedding.
+
+## Reports (`db/b_reports.sql`, shown on `/reports`)
+
+All take `(p_from DATE, p_to DATE, p_hostel INT)`; `p_hostel = NULL` means every hostel. The slides show each function's text straight from this file.
+
+| Report | Function | Technique |
+|---|---|---|
+| Roll-call attendance per hostel per month | `report_attendance_by_hostel_month` | CTE |
+| Violations by type and hostel | `report_violations_by_type_hostel` | `GROUP BY ... HAVING count(*) >= p_min` |
+| Running total of violations | `report_cumulative_violations` | window `SUM() OVER (PARTITION BY hostel ORDER BY day)` |
+| Students ranked by late returns inside each hostel | `report_late_return_rank` | `RANK()` and `DENSE_RANK()` |
+| Gate crossings by hour, IN vs OUT | `report_gate_traffic_by_hour` | `GROUP BY extract(hour)` joined to `generate_series` (empty hours show 0) |
+| Time outside per trip, by weekday | `report_time_outside` over view `v_report_trips` | `LEAD()` pairs each OUT with the student's next IN |
+| Leave requests by status, median length, median lead time | `report_leave_summary` | aggregate `FILTER`, `percentile_cont(0.5) WITHIN GROUP` |
+| Face scan outcomes per week | `report_recognition_outcomes` | `FILTER` with `date_trunc('week')` (the vector-search side) |
+| Similarity histogram | `report_similarity_distribution` | `width_bucket()` |
+| Students below 75 % attendance | `report_low_attendance_students` | derived-table subquery plus `IN (subquery ... HAVING)` |
+| Most common words | `report_top_words` | full-text: `to_tsvector('english', ...)` lexemes via `unnest` |
+
+Not computable from the schema: leave approval *time* (`leave_requests` has no requested-at column) and top search terms (searches are not logged); the leave report shows the decision lead time instead and says so.
+
