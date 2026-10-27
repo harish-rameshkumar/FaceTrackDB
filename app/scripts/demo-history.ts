@@ -51,8 +51,23 @@ async function main() {
   }
   const existing = await q<{ value: string }>("SELECT value FROM b_meta WHERE key = 'generated_history'");
   if (existing[0]) {
-    console.error(`Generated history already exists (${existing[0].value}). Running it twice would collide with itself. Use npm run demo:clear -- --yes to start over.`);
-    process.exit(1);
+    // The label only counts while the face events it created still exist. After the database was
+    // reloaded or cleared it is stale: remove it and carry on.
+    let stillThere = true;
+    try {
+      const v = JSON.parse(existing[0].value) as { first_event_id?: number; last_event_id?: number };
+      if (typeof v.first_event_id === "number" && typeof v.last_event_id === "number") {
+        stillThere = (await q("SELECT 1 FROM face_events WHERE event_id BETWEEN $1 AND $2 LIMIT 1", [v.first_event_id, v.last_event_id])).length > 0;
+      }
+    } catch {
+      stillThere = true;
+    }
+    if (stillThere) {
+      console.error(`Generated history already exists (${existing[0].value}). Running it twice would collide with itself. Use npm run demo:clear -- --yes to start over.`);
+      process.exit(1);
+    }
+    await pool.query("DELETE FROM b_meta WHERE key = 'generated_history'");
+    console.log("Ignored a stale label from an earlier history that no longer exists.");
   }
 
   const today = (await q<{ d: string }>("SELECT to_char(current_date, 'YYYY-MM-DD') AS d"))[0].d;
