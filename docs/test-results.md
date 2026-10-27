@@ -201,3 +201,86 @@ Checked with curl against `next dev`, logged in through `POST /api/login` as the
 2. Layout and look of `/warden` and `/warden/search` (card grid, tables on a narrow window, dark mode), and that the highlighted words are visibly marked.
 3. The filter forms by clicking: choosing a hostel and pressing Apply updates the URL and the tables; Reset clears them; the search form works with Enter.
 4. The warden confirm/reject buttons and the roll-call scan with a camera (unchanged and still not hand-tested).
+
+# Test results: admin registration, roll calls, password change (Stage 2)
+
+Run on 2026-10-27 against a scratch PostgreSQL database (`s2_scratch`, loaded from the SQL files plus `./db/load_b.sh`) and a second Qdrant on port 6334; `next start` on port 3200. The real database was not touched. No schema file changed in this stage (the new objects are in `db/b_register.sql`), so `db/test_cases.sql` still passes **71 of 71**.
+
+## SQL functions: `db/b_register_tests.sql` (everything rolls back)
+```
+                           name                           | result |                                          
+----------------------------------------------------------+--------+------------------------------------------
+ Register with two parents                                | PASS   | {"parents": [{"email": "pa@t.test", "crea
+ Shared parent is reused                                  | PASS   | {"parents": [{"email": "pa@t.test", "crea
+ Duplicate student email                                  | PASS   | FT050
+ Duplicate SRN (case-insensitive)                         | PASS   | FT051
+ Parent email of a staff account                          | PASS   | FT052
+ Consent required                                         | PASS   | FT053
+ Zero parents                                             | PASS   | FT053
+ Three parents                                            | PASS   | FT053
+ Bad relation                                             | PASS   | FT053
+ Same email for both parents                              | PASS   | FT053
+ Unknown hostel                                           | PASS   | FT054
+ Failure halfway leaves no orphan users                   | PASS   | users 19->19 students 8->8
+ Seeded student with history cannot be deleted            | PASS   | {"attendance records","leave requests","f
+ Delete: only the parent with no other ward is removed    | PASS   | removed=1
+ Delete last ward removes the shared parent too           | PASS   | users=15
+ Delete with history refused (FT055)                      | PASS   | FT055
+ Delete unknown student (FT009)                           | PASS   | FT009
+ Create roll call                                         | PASS   | 18
+ Overlapping roll call (FT060)                            | PASS   | FT060
+ Contained roll call (FT060)                              | PASS   | FT060
+ Back-to-back is allowed, but end before start is a CHECK | PASS   | 23514
+ Roll call in the past (FT061)                            | PASS   | FT061
+ Roll call for unknown hostel (FT054)                     | PASS   | FT054
+ Adjacent roll call is allowed                            | PASS   | 20
+ Same time at another hostel is allowed                   | PASS   | 21
+ Close preview equals the real result                     | PASS   | preview 3/3, real 3/3
+(26 rows)
+```
+26/26 passed.
+
+## API: `npm run test:register`
+Registers students through the API, logs in as the new student and parents, checks what a parent sees, duplicates, the rollback, deletion rules, roll-call sessions and password change, then removes everything it created.
+
+| Case | Expected | Actual | Result |
+|---|---|---|---|
+| Non-admin denied (warden) | register 403, delete 403 | register 403, delete 403 | PASS |
+| Non-admin denied (student) | register 403, delete 403 | register 403, delete 403 | PASS |
+| Non-admin denied (anonymous) | register 401, delete 401 | register 401, delete 401 | PASS |
+| Admin pages deny a warden | Access denied on all 3 pages | denied, denied, denied | PASS |
+| Register student + 2 parents | 201, 3 new logins, no password in the response | 201 parents=[true,true] leaked=false | PASS |
+| Passwords stored as bcrypt hashes | 3 rows, all $2a$10$/$2b$10$ | $2b$10$,$2b$10$,$2b$10$ | PASS |
+| New student and both parents can log in | role student / parent / parent, ids set | student(15) parent(11) parent(12) | PASS |
+| A parent sees only their own ward's leave | A and B see the new request; an unrelated parent does not | created=201 A=true B=true other=false | PASS |
+| Student cannot use staff routes | 403 on /api/sessions | 403 | PASS |
+| Duplicate email rejected | 409, error on the email field | 409 {"email":"This email is already registered"} | PASS |
+| Duplicate SRN rejected (case-insensitive) | 409, error on roll_no | 409 {"roll_no":"This SRN is already registered"} | PASS |
+| Short password rejected | 400 with a field error | 400 {"password":"Password must be at least 8 characters"} | PASS |
+| Consent required | 400, consent field error | 400 {"consent":"Consent is required to register a student"} | PASS |
+| Bad relation rejected | 400 | 400 | PASS |
+| Shared parent is reused, not duplicated | 1 user, 2 wards, created=false, old password still works | 201 users=1 wards=2 created=false old=200 new=401 | PASS |
+| Failure halfway rolls everything back | 409; no new users or students (no orphans) | 409 users 19->19, students 8->8; body={"error":"A parent email already belongs to a student or staff account"} | PASS |
+| Delete refused when history exists (seeded student) | 409 has_history, student still there | 409 has_history | PASS |
+| Delete refused when only a leave request exists | 409 | 409 This student cannot be deleted because they have leave requests. History is kept | PASS |
+| Delete allowed without history; removes faces, logins | 200; student, own login, parent login and Qdrant points gone | 200 points 2->0 users left=0 profiles=0 | PASS |
+| Shared parent kept while another ward remains | 200, parent login still exists | 200 parent users=1 | PASS |
+| Delete unknown student | 404 | 404 | PASS |
+| Change own password | wrong current 403; ok 200; old login 401; new login 200; short 400 | 403 200 401 200 400 | PASS |
+| Create roll call (warden) | 201 | 201 | PASS |
+| Overlap rejected, adjacent and other hostel allowed | 409, 201, 201 | 409 201 201 | PASS |
+| Past / backwards / fake date / unknown hostel rejected | 422, 400, 400, 400 | 422 400 400 400 | PASS |
+| Student cannot create a roll call | 403 | 403 | PASS |
+| Closing a roll call that has not ended | 409 with a fixed message | 409 This roll call has not ended yet | PASS |
+| Close shows the count, then does exactly that | preview = result = hostel size; second close marks 0 | preview 3/3, real 3/3, again 0, hostel size 3 | PASS |
+| Session list shows the closed roll call | status ended, pending 0 | ended pending=0 absent=3 | PASS |
+| /warden/sessions renders without raw errors | page lists hostels, no SQL/FT codes | true false | PASS |
+| Cleanup leaves no test users behind | 15 users | 15 users | PASS |
+
+31/31 passed. Also checked by hand with curl: the `/admin/students` filters (`q`, `hostel`, `status`) return the expected rows (all 6 / `arun` 1 / hostel 2: 3) and a hostile value such as `%';--` with `hostel=abc&status=zzz` returns an empty list with no error text in the page; `npm run demo:clear` printed its plan without `--yes`, and with `--yes` removed 6 students, 6 parents and their 12 logins and left the 3 staff accounts, hostels, gates, cameras and roll-call sessions.
+
+## Not verified (needs a browser)
+- The registration form: field-level error display, the generated passwords, the consent checkbox, the "Credentials created" screen (copy buttons, print preview, one-time display) and the automatic jump to face enrolment.
+- The confirmation dialogs (delete student, close roll call) and the date/time pickers.
+- `/admin/students/[id]/enrol` with the camera. (The server side of re-enrol was run with images through curl: a student with 15 stored samples enrolled again with `replace=1` ended with 5 samples in both PostgreSQL and Qdrant; without `replace` the samples are added.)
+- The nav links for admin and warden, and `/account`, in a real browser.

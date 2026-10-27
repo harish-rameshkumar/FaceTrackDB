@@ -46,6 +46,10 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 | Path | Role | What |
 |---|---|---|
 | `/login`, `POST /api/login`, `/api/logout`, `/api/me` | everyone | sign in / out (Person A) |
+| `/account`, `POST /api/account/password` | any signed-in user | change your own password (current password required, at least 8 characters) |
+| `/admin/students`, `/admin/students/new` | admin | list with search and filters (SRN, name, hostel, enrolment), register a student with one or two parents (creates the logins in one transaction), then guided face enrolment, re-enrol, delete |
+| `POST /api/admin/students`, `DELETE /api/admin/students/[id]` | admin | register / delete (delete only when the student has no attendance, gate, violation, leave or scan history) |
+| `/warden/sessions`, `GET/POST /api/sessions`, `GET/POST /api/sessions/[id]/close` | warden, admin | create roll calls (overlaps and past times refused), close one after it ends (a dialog shows how many students will be marked absent) |
 | `/student/leave`, `/parent/leave`, `/violations` | student, parent, warden/admin (violations) | leave requests and decisions, violations list (Person A) |
 | `/warden` | warden, admin | dashboard: students inside/outside, on leave, open violations, scans waiting for review, presence and attendance tables with filters, monthly attendance per hostel |
 | `/warden/search` | warden, admin | full-text search over violation details and leave reasons, ranked with highlighted matches |
@@ -58,6 +62,18 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 | `GET /api/health` | none | PostgreSQL, Qdrant and collection status (the embedder has its own `/health` on port 8001) |
 
 The dashboard and search read the views and full-text columns created by `./db/load_b.sh` (step 4), so run it before opening them.
+
+### Two ways to start
+
+1. **With the sample data** (steps 3-4 above): 6 students and 6 parents from `db/seed.sql`, with history. Their faces are not enrolled; enrol them at `/enrol`.
+2. **Clean start and register through the UI:** keep the staff accounts, hostels, gates and cameras and remove every student, parent and all their records:
+   ```bash
+   cd app && npm run demo:clear           # prints what it would delete, changes nothing
+   npm run demo:clear -- --yes            # DESTRUCTIVE: students, parents, their logins, leave, attendance, gate log, scans, violations, face data
+   ```
+   Then sign in as `admin1@facetrack.test`, open **Students > Register student**, fill in the student and one or two parents (temporary passwords are generated; copy or print them on the "Credentials created" screen, which is shown once), and continue straight into face enrolment. `demo:clear` does not touch `db/seed.sql`, and it also empties the Qdrant collection, so only run it on data you can lose.
+
+Registration needs the consent checkbox; what is stored and for how long is in [docs/privacy-and-biometric-policy.md](docs/privacy-and-biometric-policy.md).
 
 ### Face recognition and thresholds
 
@@ -81,6 +97,8 @@ A student's score is the mean of their best two sample similarities. At the gate
 **Upgrading from the old 128-d face-api version:** the old vectors are invalid. Run `cd app && npm run qdrant:reset -- --yes` (prints what it will delete, then deletes the `face_profiles` rows and recreates the 512-d collection; scan history is kept) and re-enrol everyone at `/enrol`.
 
 ### Tests
+
+Registration, deletion, roll calls and password change (HTTP, against a scratch database and a running server; 31 checks): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:register`. The SQL functions: `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_register_tests.sql` (26 checks, rolls back).
 
 The matching tests write fake enrolments, so they only run against a scratch database and a `_test` Qdrant collection (they refuse anything else). Details and real output: [docs/test-results.md](docs/test-results.md).
 
