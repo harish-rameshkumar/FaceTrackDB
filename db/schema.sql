@@ -10,6 +10,7 @@ BEGIN;
 -- ---------------------------------------------------------------------
 -- 0. DROP (children first, so foreign keys never block the drop)
 -- ---------------------------------------------------------------------
+DROP TABLE IF EXISTS login_attempts      CASCADE;
 DROP TABLE IF EXISTS violations          CASCADE;
 DROP TABLE IF EXISTS leave_requests      CASCADE;
 DROP TABLE IF EXISTS entry_exit_log      CASCADE;
@@ -40,6 +41,9 @@ CREATE TABLE users (
     role           VARCHAR(20)  NOT NULL
                    CHECK (role IN ('student', 'parent', 'warden', 'security', 'admin')),
     created_at     TIMESTAMP    NOT NULL DEFAULT now(),
+    -- session revocation: a login token is valid only while its version matches
+    -- (db/migrations/002_users_token_version.sql adds this to existing databases)
+    token_version  INT          NOT NULL DEFAULT 0,
     CONSTRAINT users_email_format CHECK (email LIKE '%_@_%')
 );
 
@@ -185,6 +189,9 @@ CREATE TABLE violations (
     status        VARCHAR(15) NOT NULL DEFAULT 'open'
                   CHECK (status IN ('open', 'resolved')),
     resolved_by   INT         REFERENCES users(user_id),
+    -- when it was resolved (db/migrations/001_violations_resolved_at.sql adds this
+    -- to existing databases and backfills older resolved rows with raised_at)
+    resolved_at   TIMESTAMP,
     -- the gate log row, if any, must be this student's own row
     CONSTRAINT violations_log_fk
         FOREIGN KEY (log_id, student_id)
@@ -194,8 +201,22 @@ CREATE TABLE violations (
         CHECK (log_id IS NOT NULL OR session_id IS NOT NULL),
     -- resolved if and only if someone resolved it
     CONSTRAINT violations_resolution
-        CHECK ((status = 'resolved') = (resolved_by IS NOT NULL))
+        CHECK ((status = 'resolved') = (resolved_by IS NOT NULL)),
+    CONSTRAINT violations_resolved_at_consistent
+        CHECK ((status = 'resolved') = (resolved_at IS NOT NULL))
 );
+
+-- Login attempts, for rate limiting (functions login_retry_after / login_record in
+-- procedures.sql; db/migrations/003_login_attempts.sql adds this to existing databases).
+CREATE TABLE login_attempts (
+    attempt_id    BIGSERIAL PRIMARY KEY,
+    email         VARCHAR(255) NOT NULL,
+    ip            VARCHAR(64)  NOT NULL,
+    succeeded     BOOLEAN      NOT NULL,
+    attempted_at  TIMESTAMP    NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_login_attempts_email_time ON login_attempts (email, attempted_at DESC);
+CREATE INDEX idx_login_attempts_ip_time    ON login_attempts (ip, attempted_at DESC);
 
 -- ---------------------------------------------------------------------
 -- 4. INDEXES

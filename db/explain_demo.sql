@@ -46,11 +46,12 @@ SELECT 1 + (i % 6),
 FROM generate_series(1, 300000) AS i;
 
 -- 1 violation in 100 is still open; the rest are resolved by the warden
-INSERT INTO violations (student_id, session_id, type, details, raised_at, status, resolved_by)
+INSERT INTO violations (student_id, session_id, type, details, raised_at, status, resolved_by, resolved_at)
 SELECT a.student_id, a.session_id, 'missed_attendance', 'generated',
        sess.session_date + sess.end_time,
        CASE WHEN a.session_id % 100 = 0 THEN 'open' ELSE 'resolved' END,
-       CASE WHEN a.session_id % 100 = 0 THEN NULL ELSE 1 END
+       CASE WHEN a.session_id % 100 = 0 THEN NULL ELSE 1 END,
+       CASE WHEN a.session_id % 100 = 0 THEN NULL ELSE sess.session_date + sess.end_time + INTERVAL '10 hours' END
 FROM attendance a
 JOIN attendance_sessions sess USING (session_id)
 WHERE sess.session_date >= DATE '2026-11-01';

@@ -1,24 +1,20 @@
 import "server-only";
+import { GENERIC_ERROR, publicDbError } from "./db-errors";
 
-// HTTP status for each custom error code raised by the database triggers and
-// stored procedures (see db/docs/phase3-logic.md for what each one means).
-const STATUS_BY_CODE: Record<string, number> = {
-  FT001: 409, FT002: 404, FT003: 403, FT004: 422, FT005: 409,
-  FT006: 404, FT007: 422, FT008: 409, FT009: 404, FT010: 409,
-  FT011: 422, FT020: 400, FT021: 422, FT022: 409, FT023: 409,
-  FT024: 422, FT030: 400, FT031: 404, FT032: 409, FT033: 403,
-  FT034: 409, FT040: 422,
-};
-
-// If the error came from one of our database rules, answer with its message and
-// the matching status; otherwise return null so the caller can rethrow (a 500).
+// Turns an error thrown by a database call into a JSON response with a FIXED message.
+//   * one of our rules (FT***) or a constraint error: its own status and message (lib/db-errors.ts);
+//   * any other database or connection error (it carries a string `code`, for example a SQL error
+//     or ECONNREFUSED): a generic 500, with the real error written only to the server log;
+//   * anything else (a bug, or Next.js's own control-flow errors such as "dynamic usage" during
+//     prerendering): null, so the caller rethrows it and Next.js handles it.
+// The database's message text never reaches the browser, because it can contain ids,
+// timestamps and column names (for example "Parent 3 is not a parent of student 4").
 export function dbErrorResponse(e: unknown): Response | null {
-  const code = (e as { code?: unknown } | null)?.code;
-  if (typeof code === "string" && code in STATUS_BY_CODE) {
-    return Response.json(
-      { error: (e as Error).message, code },
-      { status: STATUS_BY_CODE[code] }
-    );
+  const known = publicDbError(e);
+  if (known) return Response.json({ error: known.message, code: known.code }, { status: known.status });
+  if (typeof (e as { code?: unknown } | null)?.code === "string") {
+    console.error("unexpected database error", e);
+    return Response.json({ error: GENERIC_ERROR.message }, { status: GENERIC_ERROR.status });
   }
   return null;
 }

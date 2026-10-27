@@ -26,6 +26,7 @@ export default function StudentLeave() {
   const [reason, setReason] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,6 +41,17 @@ export default function StudentLeave() {
     setStartDate("");
     setEndDate("");
     setReason("");
+    reload();
+  }
+
+  async function cancel(id: number) {
+    if (!window.confirm("Cancel this leave request? It will be removed.")) return;
+    setCancelError(null);
+    const res = await fetch(`/api/leave/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setCancelError(body.error ?? "Could not cancel the request");
+    }
     reload();
   }
 
@@ -100,6 +112,8 @@ export default function StudentLeave() {
 
       <section>
         <h2 className="mb-2 font-semibold">My requests</h2>
+        <p className="mb-2 text-xs text-gray-500">You can cancel a request while it is pending. Once a parent has decided it, it can no longer be changed.</p>
+        {cancelError && <p role="alert" className="mb-2 text-sm text-red-600">{cancelError}</p>}
         {data && data.requests.length === 0 ? (
           <p className="text-sm text-gray-500">No leave requests yet.</p>
         ) : (
@@ -110,7 +124,8 @@ export default function StudentLeave() {
                   <th className="py-2 pr-4">Dates</th>
                   <th className="py-2 pr-4">Reason</th>
                   <th className="py-2 pr-4">Status</th>
-                  <th className="py-2">Decided by</th>
+                  <th className="py-2 pr-4">Decided by</th>
+                  <th className="py-2"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -123,7 +138,14 @@ export default function StudentLeave() {
                     <td className="py-2 pr-4">
                       <span className={`rounded px-2 py-0.5 ${BADGE[r.status]}`}>{r.status}</span>
                     </td>
-                    <td className="py-2">{r.decidedByName ?? "-"}</td>
+                    <td className="py-2 pr-4">{r.decidedByName ?? "-"}</td>
+                    <td className="py-2">
+                      {r.status === "pending" && (
+                        <button type="button" onClick={() => cancel(r.id)} className="text-red-700 underline">
+                          Cancel request
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -32,12 +32,12 @@ INSERT INTO entry_exit_log (log_id, student_id, gate_id, direction, event_time) 
   (9105, 9101, 91, 'OUT', '2026-03-12 10:00'), (9106, 9101, 91, 'IN', '2026-03-12 23:10'),
   (9107, 9102, 91, 'OUT', '2026-03-10 12:00'), (9108, 9102, 91, 'IN', '2026-03-10 22:45');
 
-INSERT INTO violations (student_id, log_id, session_id, type, details, raised_at, status, resolved_by) VALUES
-  (9101, 9104, NULL, 'late_return', 'Returned after the curfew', '2026-03-11 23:00', 'open', NULL),
-  (9101, 9106, NULL, 'late_return', 'Returned after the curfew', '2026-03-12 23:10', 'open', NULL),
-  (9102, 9108, NULL, 'late_return', 'Returned after the curfew', '2026-03-10 22:45', 'resolved', 1),
-  (9103, NULL, 9102, 'missed_attendance', 'Absent at the roll call', '2026-04-05 21:00', 'open', NULL),
-  (9103, NULL, 9103, 'missed_attendance', 'Absent at the roll call', '2026-04-20 21:00', 'open', NULL);
+INSERT INTO violations (student_id, log_id, session_id, type, details, raised_at, status, resolved_by, resolved_at) VALUES
+  (9101, 9104, NULL, 'late_return', 'Returned after the curfew', '2026-03-11 23:00', 'open', NULL, NULL),
+  (9101, 9106, NULL, 'late_return', 'Returned after the curfew', '2026-03-12 23:10', 'open', NULL, NULL),
+  (9102, 9108, NULL, 'late_return', 'Returned after the curfew', '2026-03-10 22:45', 'resolved', 1, '2026-03-11 09:00'),
+  (9103, NULL, 9102, 'missed_attendance', 'Absent at the roll call', '2026-04-05 21:00', 'open', NULL, NULL),
+  (9103, NULL, 9103, 'missed_attendance', 'Absent at the roll call', '2026-04-20 21:00', 'open', NULL, NULL);
 
 INSERT INTO leave_requests (student_id, start_date, end_date, reason, status, decided_by, decided_at) VALUES
   (9101, '2026-04-10', '2026-04-12', 'Family wedding ceremony', 'approved', 9111, '2026-04-08 10:00'),

@@ -1,4 +1,5 @@
 import AppHeader from "@/components/AppHeader";
+import { RoleGate } from "@/components/RoleGate";
 import StudentLeave from "./StudentLeave";
 
 export const metadata = { title: "My leave | FaceTrackDB" };
@@ -9,7 +10,9 @@ export default function StudentLeavePage() {
       <AppHeader />
       <main className="mx-auto max-w-3xl p-6">
         <h1 className="mb-6 text-2xl font-semibold">My leave</h1>
-        <StudentLeave />
+        <RoleGate roles={["student"]}>
+          <StudentLeave />
+        </RoleGate>
       </main>
     </>
   );

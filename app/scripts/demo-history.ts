@@ -256,7 +256,8 @@ async function main() {
       const old = await client.query<{ violation_id: number }>("SELECT violation_id FROM violations WHERE violation_id > $1 AND raised_at < $2::date - 7 ORDER BY violation_id", [before.violation, today]);
       for (const v of old.rows) {
         if (chance(0.65)) {
-          await client.query("UPDATE violations SET status = 'resolved', resolved_by = $2 WHERE violation_id = $1", [v.violation_id, wardenId]);
+          // resolved_at is set to a believable time after the violation was raised (1 to 36 hours)
+          await client.query("UPDATE violations SET status = 'resolved', resolved_by = $2, resolved_at = raised_at + make_interval(mins => $3::int) WHERE violation_id = $1", [v.violation_id, wardenId, ri(60, 36 * 60)]);
           resolved++;
         }
       }

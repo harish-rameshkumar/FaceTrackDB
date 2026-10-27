@@ -1,9 +1,10 @@
 import { getPool } from "@/lib/db";
-import { readSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth";
 
 // Who am I? Used by the UI to decide what to show, and handy for testing login.
+// getCurrentUser also checks that the user still exists and the token is not revoked.
 export async function GET() {
-  const session = await readSession();
+  const session = await getCurrentUser();
   if (!session) {
     return Response.json({ error: "Not logged in" }, { status: 401 });
   }
@@ -17,7 +18,6 @@ export async function GET() {
     [session.userId]
   );
   if (!rows[0]) {
-    // The account was deleted after the token was issued
     return Response.json({ error: "Not logged in" }, { status: 401 });
   }
 

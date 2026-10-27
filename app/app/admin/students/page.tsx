@@ -57,7 +57,7 @@ async function Content({ searchParams }: { searchParams: Search }) {
   const [hostels, students] = await Promise.all([
     pool.query("SELECT hostel_id, name FROM hostels ORDER BY name"),
     pool.query(
-      `SELECT s.student_id, s.roll_no, s.name, s.room_no, h.name AS hostel, u.email, fp.n AS samples,
+      `SELECT s.student_id, s.user_id, s.roll_no, s.name, s.room_no, h.name AS hostel, u.email, fp.n AS samples,
               COALESCE((SELECT string_agg(p.name || ' (' || sp.relation || ')', ', ' ORDER BY p.name)
                         FROM student_parent sp JOIN parents p USING (parent_id) WHERE sp.student_id = s.student_id), '') AS parents
        FROM students s
@@ -110,7 +110,7 @@ async function Content({ searchParams }: { searchParams: Search }) {
                 <td className="break-all">{r.email}</td>
                 <td>{r.parents || "–"}</td>
                 <td>{r.samples > 0 ? `${r.samples} (enrolled)` : "0 (not enrolled)"}</td>
-                <td><StudentActions studentId={r.student_id} name={r.name} samples={r.samples} /></td>
+                <td><StudentActions studentId={r.student_id} userId={r.user_id} name={r.name} samples={r.samples} /></td>
               </tr>
             ))}
             {students.rowCount === 0 && <tr><td colSpan={7} className="py-6 text-center text-zinc-500">No students match.</td></tr>}

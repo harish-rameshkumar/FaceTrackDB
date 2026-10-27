@@ -20,7 +20,7 @@ export async function POST(
     const pool = getPool();
     const updated = await pool.query(
       `UPDATE violations
-       SET status = 'resolved', resolved_by = $2
+       SET status = 'resolved', resolved_by = $2, resolved_at = localtimestamp
        WHERE violation_id = $1 AND status = 'open'`,
       [violationId, user.userId]
     );

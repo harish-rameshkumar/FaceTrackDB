@@ -7,7 +7,7 @@ Covers the relational schema, functional dependencies, the 3NF/BCNF check, the d
 PK = primary key, FK = foreign key, UK = unique key (candidate key).
 
 ```
-users(user_id PK, email UK, password_hash, role, created_at)
+users(user_id PK, email UK, password_hash, role, created_at, token_version)
 students(student_id PK, user_id FK->users UK, roll_no UK, name, hostel_id FK->hostels, room_no)
 parents(parent_id PK, user_id FK->users UK, name, phone)
 student_parent(student_id FK->students, parent_id FK->parents, relation)  PK(student_id, parent_id)
@@ -27,7 +27,8 @@ leave_requests(leave_id PK, student_id FK->students, start_date, end_date, reaso
                status, decided_by FK->parents NULL, decided_at NULL)
 violations(violation_id PK, student_id FK->students, log_id FK->entry_exit_log NULL,
            session_id FK->attendance_sessions NULL, type, details, raised_at, status,
-           resolved_by FK->users NULL)
+           resolved_by FK->users NULL, resolved_at NULL)
+login_attempts(attempt_id PK, email, ip, succeeded, attempted_at)   -- rate limiting; no foreign keys
 ```
 
 ### Relationships
@@ -48,7 +49,7 @@ violations(violation_id PK, student_id FK->students, log_id FK->entry_exit_log N
 
 | Table | Functional dependencies |
 |---|---|
-| users | user_id -> email, password_hash, role, created_at; email -> user_id |
+| users | user_id -> email, password_hash, role, created_at, token_version; email -> user_id |
 | students | student_id -> user_id, roll_no, name, hostel_id, room_no; roll_no -> student_id; user_id -> student_id |
 | parents | parent_id -> user_id, name, phone; user_id -> parent_id |
 | student_parent | (student_id, parent_id) -> relation |
@@ -61,7 +62,8 @@ violations(violation_id PK, student_id FK->students, log_id FK->entry_exit_log N
 | attendance | (session_id, student_id) -> event_id, status, marked_at |
 | entry_exit_log | log_id -> student_id, gate_id, event_id, direction, event_time |
 | leave_requests | leave_id -> student_id, start_date, end_date, reason, status, decided_by, decided_at |
-| violations | violation_id -> student_id, log_id, session_id, type, details, raised_at, status, resolved_by |
+| violations | violation_id -> student_id, log_id, session_id, type, details, raised_at, status, resolved_by, resolved_at |
+| login_attempts | attempt_id -> email, ip, succeeded, attempted_at |
 
 Note: room_no does **not** determine hostel_id, because the same room number can exist in different hostels. That is why there is no extra dependency in students.
 
@@ -107,6 +109,7 @@ These are enforced in Phase 3 with triggers or composite foreign keys.
 | password_hash | VARCHAR(255) | NOT NULL | Hashed password (never plain text) |
 | role | VARCHAR(20) | NOT NULL, CHECK in (student, parent, warden, security, admin) | Access role |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT now() | Account creation time |
+| token_version | INT | NOT NULL, DEFAULT 0 | Session revocation: a login token is valid only while its version equals this; adding 1 signs the user out everywhere (migration 002) |
 
 ### students
 | Column | Type | Constraints | Meaning |
@@ -226,6 +229,18 @@ These are enforced in Phase 3 with triggers or composite foreign keys.
 | raised_at | TIMESTAMP | NOT NULL, DEFAULT now() | When it was raised |
 | status | VARCHAR(15) | NOT NULL, CHECK in (open, resolved) | Handling state |
 | resolved_by | INT | FK users, NULL | Warden who resolved it |
+| resolved_at | TIMESTAMP | NULL; CHECK (status = 'resolved') = (resolved_at IS NOT NULL) | When it was resolved. Rows resolved before the column existed were backfilled with `raised_at` (an approximation; migration 001) |
+
+### login_attempts
+(added by migration 003; used by `login_retry_after` / `login_record` in `db/procedures.sql`)
+
+| Column | Type | Constraints | Meaning |
+|---|---|---|---|
+| attempt_id | BIGSERIAL | PK | |
+| email | VARCHAR(255) | NOT NULL | Lower-cased email that was tried, whether or not it exists |
+| ip | VARCHAR(64) | NOT NULL | Caller address (X-Forwarded-For, or "unknown") |
+| succeeded | BOOLEAN | NOT NULL | A success clears the email's failure counter |
+| attempted_at | TIMESTAMP | NOT NULL, DEFAULT now() | Rows older than a day are deleted now and then |
 
 ## 5. Contract with Person B (procedures)
 
