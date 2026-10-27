@@ -44,11 +44,11 @@ export function Presentation({ reports, scope, historyNote, backHref }: { report
     return () => window.removeEventListener("keydown", onKey);
   }, [cur, go, last]);
 
-  const btn = "rounded border border-zinc-400 px-3 py-1.5 text-sm disabled:opacity-40";
+  const btn = "inline-flex min-h-10 items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-40";
   return (
-    <div className="deck fixed inset-0 z-50 flex flex-col overflow-auto bg-[var(--background)] text-[var(--foreground)] print:static print:block print:overflow-visible">
-      <header className="no-print flex flex-wrap items-center justify-between gap-3 border-b border-zinc-300 px-6 py-3 dark:border-zinc-700">
-        <div className="text-sm"><Link href={backHref} className="underline">Exit</Link> <span className="ml-3 text-zinc-600 dark:text-zinc-400">{scope}</span></div>
+    <main id="main" className="deck fixed inset-0 z-50 flex flex-col overflow-auto bg-bg text-fg print:static print:block print:overflow-visible">
+      <header className="no-print flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-6">
+        <div className="text-sm"><Link href={backHref} className="font-medium text-primary underline">Exit</Link> <span className="ml-3 text-muted">{scope}</span></div>
         <div className="flex items-center gap-2" role="group" aria-label="Slide controls">
           <button className={btn} onClick={() => go(cur - 1)} disabled={cur === 0} aria-label="Previous slide">&larr; Previous</button>
           <span className="min-w-16 text-center text-sm" aria-live="polite">{cur + 1} / {reports.length}</span>
@@ -60,14 +60,14 @@ export function Presentation({ reports, scope, historyNote, backHref }: { report
 
       {reports.map((r, i) => (
         <section key={r.key} className={`slide mx-auto w-full max-w-6xl flex-1 p-8 ${i === cur ? "block" : "hidden"} print:block`} aria-label={`Slide ${i + 1} of ${reports.length}`} aria-hidden={i !== cur}>
-          <p className="text-sm uppercase tracking-wide text-zinc-600 dark:text-zinc-400">SQL concept used: <strong>{r.concept}</strong></p>
+          <p className="text-sm uppercase tracking-wide text-muted">SQL concept used: <strong>{r.concept}</strong></p>
           <h1 className="mb-6 mt-2 text-3xl font-semibold leading-tight">{r.title}</h1>
           <ReportView report={r} chartHeight={380} big />
-          <p className="mt-6 text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="mt-6 text-xs text-muted">
             {scope} · slide {i + 1} of {reports.length}{historyNote ? ` · ${historyNote}` : ""}
           </p>
         </section>
       ))}
-    </div>
+    </main>
   );
 }
