@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
+import { checkJwtSecret } from "./jwt-secret";
 
 export const ROLES = ["student", "parent", "warden", "security", "admin"] as const;
 export type Role = (typeof ROLES)[number];
@@ -12,19 +13,22 @@ export type SessionPayload = {
   role: Role;
   studentId?: number;
   parentId?: number;
+  // users.token_version when the token was issued. lib/auth.ts compares it with the
+  // database on every request, so bumping the version signs the user out everywhere.
+  tokenVersion?: number;
 };
 
 export const SESSION_COOKIE = "facetrack_session";
 const SESSION_SECONDS = 8 * 60 * 60; // 8 hours
 
+// Fails closed: a missing, short or placeholder secret throws, so login answers 500 and no
+// token is ever accepted. The error names the problem but never prints the secret.
 function secretKey(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error(
-      "JWT_SECRET must be set to a random string of at least 32 characters (see .env.example)."
-    );
+  const problem = checkJwtSecret(process.env.JWT_SECRET);
+  if (problem) {
+    throw new Error(`${problem}. Set JWT_SECRET to a random string of at least 32 characters, for example the output of: openssl rand -hex 32`);
   }
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(process.env.JWT_SECRET);
 }
 
 // Signs a JWT and stores it in an HttpOnly cookie (JavaScript in the browser cannot read it).
@@ -33,6 +37,7 @@ export async function createSession(payload: SessionPayload): Promise<void> {
     role: payload.role,
     studentId: payload.studentId,
     parentId: payload.parentId,
+    tv: payload.tokenVersion ?? 0,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(payload.userId))
@@ -67,6 +72,7 @@ export async function readSession(): Promise<SessionPayload | null> {
       role,
       studentId: typeof payload.studentId === "number" ? payload.studentId : undefined,
       parentId: typeof payload.parentId === "number" ? payload.parentId : undefined,
+      tokenVersion: typeof payload.tv === "number" ? payload.tv : 0, // tokens issued before revocation existed count as version 0
     };
   } catch {
     return null; // bad signature, tampered or expired token

@@ -1,4 +1,5 @@
 import "server-only";
+import { getPool } from "./db";
 import { readSession, type Role } from "./session";
 
 // Real JWT-based authentication. It keeps the exact exports and shapes of the
@@ -12,6 +13,7 @@ export interface CurrentUser {
   role: Role;
   studentId?: number; // set when the user is a student
   parentId?: number; // set when the user is a parent
+  tokenVersion?: number; // users.token_version the token was issued with
 }
 
 export class AuthError extends Error {
@@ -20,9 +22,24 @@ export class AuthError extends Error {
   }
 }
 
-// The logged-in user, read from the signed session cookie; null when not logged in.
+// The logged-in user, or null. This is the ONE place every route and page goes through
+// (requireRole calls it), so the checks below cover the whole app:
+//   1. the signed cookie must be valid and unexpired (lib/session.ts);
+//   2. the user must still exist in the database;
+//   3. the role in the database must still be the role in the token (a demoted user loses access);
+//   4. the token's version must equal users.token_version (a password change or the admin
+//      action "Sign out everywhere" adds 1 to it, which invalidates every older token).
+// One small indexed query per request is the price of being able to revoke a session.
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  return readSession();
+  const session = await readSession();
+  if (!session) return null;
+  const { rows } = await getPool().query<{ role: string; token_version: number }>(
+    "SELECT role, token_version FROM users WHERE user_id = $1",
+    [session.userId],
+  );
+  const user = rows[0];
+  if (!user || user.role !== session.role || user.token_version !== (session.tokenVersion ?? 0)) return null;
+  return session;
 }
 
 // Throws AuthError(401) when not logged in and AuthError(403) for the wrong role.

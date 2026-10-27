@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
+import { createSession } from "@/lib/session";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/registration";
 
 // POST /api/account/password { current, next }: any signed-in user changes their own password.
@@ -26,7 +27,13 @@ export async function POST(request: Request) {
     if (!rows[0] || !(await bcrypt.compare(current.slice(0, 200), rows[0].password_hash))) {
       return Response.json({ error: "Your current password is not correct" }, { status: 403 });
     }
-    await pool.query("UPDATE users SET password_hash = $1 WHERE user_id = $2", [await bcrypt.hash(next, 10), user.userId]);
+    // token_version + 1 signs this account out everywhere (every older token stops working)...
+    const updated = await pool.query<{ token_version: number }>(
+      "UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE user_id = $2 RETURNING token_version",
+      [await bcrypt.hash(next, 10), user.userId],
+    );
+    // ...and this browser gets a fresh token, so the person who changed it stays signed in
+    await createSession({ userId: user.userId, role: user.role, studentId: user.studentId, parentId: user.parentId, tokenVersion: updated.rows[0].token_version });
     return Response.json({ ok: true });
   } catch (e) {
     const auth = authErrorResponse(e);
