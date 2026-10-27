@@ -10,7 +10,9 @@
     "qdrant:reset": "tsx --env-file=.env.local scripts/reset-collection.ts",
     "qdrant:init": "tsx --env-file=.env.local scripts/create-collection.ts",
     "seed:faces": "tsx --env-file=.env.local scripts/seed-face-vectors.ts",
-    "test:match": "tsx --env-file=.env.local scripts/test-matching.ts"
+    "test:match": "tsx --env-file=.env.local scripts/test-matching.ts",
+    "demo:history": "tsx --env-file=.env.local scripts/demo-history.ts",
+    "test:reports": "tsx --env-file=.env.local scripts/test-reports.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.19.0",
@@ -21,6 +23,7 @@
     "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "recharts": "^3.10.1",
     "server-only": "^0.0.1"
   },
   "devDependencies": {

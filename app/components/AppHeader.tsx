@@ -19,11 +19,13 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   ],
   warden: [
     { href: "/warden/review", label: "Review scans" },
+    { href: "/reports", label: "Reports" },
     { href: "/violations", label: "Violations" },
   ],
   security: [{ href: "/gate", label: "Gate" }],
   admin: [
     { href: "/enrol", label: "Enrol faces" },
+    { href: "/reports", label: "Reports" },
     { href: "/violations", label: "Violations" },
   ],
 };
