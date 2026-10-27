@@ -1,5 +1,8 @@
-// Deterministic synthetic face descriptors, so enrolment and matching can be
-// demonstrated and tested without a camera. NOT real faces.
+// Deterministic synthetic 512-d unit vectors, so enrolment and matching can be
+// tested without a camera or the embedder. NOT real faces: random directions in
+// 512 dimensions are almost orthogonal (cosine about 0), which is far easier than
+// real look-alike people. The tests therefore only prove the matching RULES work,
+// not that the model separates real people (that is what `npm run faces:eval` measures).
 
 /** mulberry32: small seeded PRNG returning floats in [0, 1) */
 export function prng(seed: number): () => number {
@@ -18,39 +21,59 @@ function gaussian(rand: () => number): number {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
 }
 
-/** The "true face" of a student: a fixed unit-length direction per student id. */
-// Unit length only so synthetic "faces" are about 1.4 apart (real different people
-// are roughly 0.8-1.2 apart); the app itself never normalises descriptors.
-export function baseDescriptor(studentId: number): number[] {
-  const r = prng(1000 + studentId);
-  return normalise(Array.from({ length: 128 }, () => gaussian(r)));
-}
-
-/** A unit-length random direction. */
-function randomDirection(seed: number): number[] {
-  const r = prng(seed);
-  return normalise(Array.from({ length: 128 }, () => gaussian(r)));
-}
-
-/** base moved by exactly `distance` (Euclidean) in a seeded random direction. */
-export function descriptorAtDistance(base: number[], distance: number, seed: number): number[] {
-  const dir = randomDirection(seed);
-  return base.map((x, i) => x + distance * dir[i]);
-}
-
-/** Same thing under the name the seed script uses: a "photo" of the same face. */
-export const noisyDescriptor = descriptorAtDistance;
-
-/** A descriptor unrelated to every student (about 1.4 from any other unit-length base). */
-export function randomDescriptor(seed: number): number[] {
-  return randomDirection(seed);
-}
-
-export function euclidean(a: number[], b: number[]): number {
-  return Math.hypot(...a.map((x, i) => x - b[i]));
-}
-
 export function normalise(v: number[]): number[] {
   const n = Math.hypot(...v);
   return v.map((x) => x / n);
+}
+
+export const DIM = 512;
+
+/** A unit-length random direction. */
+export function randomEmbedding(seed: number): number[] {
+  const r = prng(seed);
+  return normalise(Array.from({ length: DIM }, () => gaussian(r)));
+}
+
+/** The "true face" of a student: a fixed unit vector per student id. */
+export function baseEmbedding(studentId: number): number[] {
+  return randomEmbedding(1000 + studentId);
+}
+
+export function dot(a: number[], b: number[]): number {
+  return a.reduce((s, x, i) => s + x * b[i], 0);
+}
+
+/**
+ * A unit vector whose cosine similarity to `base` is exactly `similarity`
+ * (a "new photo" of the same face): similarity * base + sqrt(1 - similarity^2) * d,
+ * where d is a random direction made orthogonal to base.
+ */
+export function embeddingAtSimilarity(base: number[], similarity: number, seed: number): number[] {
+  const d0 = randomEmbedding(seed);
+  const p = dot(d0, base);
+  const d = normalise(d0.map((x, i) => x - p * base[i]));
+  const s = Math.sqrt(1 - similarity * similarity);
+  return base.map((x, i) => similarity * x + s * d[i]);
+}
+
+/**
+ * Safety: the synthetic scripts write fake enrolments into face_profiles and a
+ * Qdrant collection, so they must never run against the real ones. Both the database
+ * name and the collection name have to say "test" or "scratch".
+ */
+export function assertTestEnvironment(collection: string, options: { requireTestCollection?: boolean } = {}): void {
+  const dbName = (() => {
+    try {
+      return new URL(process.env.DATABASE_URL ?? "").pathname.slice(1);
+    } catch {
+      return "";
+    }
+  })();
+  const problems: string[] = [];
+  if (!/(test|scratch)/i.test(dbName)) problems.push(`database "${dbName}" is not a scratch/test database (its name must contain "test" or "scratch")`);
+  if ((options.requireTestCollection ?? true) && !collection.endsWith("_test")) problems.push(`collection "${collection}" must end in _test (set QDRANT_COLLECTION)`);
+  if (problems.length) {
+    console.error("Refusing to run synthetic data against real data:\n  - " + problems.join("\n  - "));
+    process.exit(1);
+  }
 }
