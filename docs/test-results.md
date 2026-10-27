@@ -349,3 +349,78 @@ Run after `npm run demo:history -- --days 30 --yes` (so `EXPECT_HISTORY_NOTE=1`)
 - Charts on a phone-width screen, and with a screen reader.
 - Whether the generated demo numbers look right for your presentation (they are random but seeded).
 
+# Test results: hardening and docs (Stage 4)
+
+Run on 2026-10-27 on the author's MacBook against scratch PostgreSQL databases and a second Qdrant container (the real database and Qdrant were not touched), a production build (`next start`) on port 3200, and the embedder container. No database mentioned below is the real one.
+
+## Schema changes: migrations versus a fresh load
+Three idempotent migrations (`db/migrations/001-003`) add `violations.resolved_at`, `users.token_version` and `login_attempts` with two functions. The same objects are in `db/schema.sql` and `db/procedures.sql`.
+- **(a)** Database A: loaded from scratch with the new `./db/load_all.sh` (which also runs the migrations, a no-op on top of the schema).
+- **(b)** Database B: the OLD `schema.sql`, `seed.sql`, `triggers.sql` and `procedures.sql` from the previous commit, then `./db/migrate.sh`, then `demo_passwords.sql` and `load_b.sh`. `migrate.sh` was run twice; the second run changed nothing.
+- `pg_dump --schema-only --no-owner` of A and B: **identical, 2,251 lines compared** (after dropping pg_dump's random `\restrict` token lines, which differ on every dump).
+- Backfill check on B: the seed's one resolved violation got `resolved_at = raised_at` (2026-10-20 22:30:05), as documented; on A it has the seed's own value.
+- `db/test_cases.sql`: **98 passed / 0 failed on A and on B** (it was 71; 27 new checks cover `resolved_at`, `token_version` and the login functions: lock after 5, case-insensitive, success clears, 16 minutes later it expires, 20 per address, known and unknown emails locked the same way).
+- `./db/load_all.sh` on a database with one `face_profiles` row: **refused** (exit 1, the row was still there), with the message to use `--yes` or `migrate.sh`.
+- `db/explain_demo.sql` (writes 300,000 rows including resolved violations) still loads after adding `resolved_at` to its inserts. Two older files created resolved violations without it and were fixed when the new constraint rejected them: `db/b_reports_tests.sql` and `app/scripts/demo-history.ts`.
+
+## API and pages: `npm run test:hardening`
+Needs a scratch database and a running server; it starts a second copy of the app on port 3299 with a placeholder `JWT_SECRET`.
+
+| Case | Expected | Actual | Result |
+|---|---|---|---|
+| JWT_SECRET validation | 12 cases: accepts strong values, rejects missing/short/placeholder/guessable | 12/12 correct | PASS |
+| A placeholder JWT_SECRET fails closed | server up; correct login -> 500, no cookie; a token signed with the placeholder is never accepted (no 200) | up=true login 500 cookie=false body leaks secret=false; /api/me 500; /api/violations 500 | PASS |
+| Every FT code in phase3-logic.md has a fixed message | 22 documented codes all mapped | 22 mapped | PASS |
+| Fixed messages contain no ids or numbers | no digit in any message | none | PASS |
+| Unknown errors are not mapped; known ones never use the raw text | XX000 -> null; FT033 -> fixed text | true; You are not a parent of this student | PASS |
+| Error response: a parent decides another parent's ward's leave (FT033) | HTTP 403, fixed message, no ids or SQL | 403 {"error":"You are not a parent of this student","code":"FT033"} | PASS |
+| Error response: a second decision on a decided leave (FT032) | HTTP 409, fixed message, no ids or SQL | 409 {"error":"This leave request has already been decided","code":"FT032"} | PASS |
+| Error response: a leave request that does not exist (FT031) | HTTP 404, fixed message, no ids or SQL | 404 {"error":"Leave request not found","code":"FT031"} | PASS |
+| A database error the app did not expect becomes a generic message | no 'integer', 'out of range' or SQL text in the body | 500 {"error":"Could not create the roll call"} | PASS |
+| Lockout after 5 failures, even with the right password | 5x401 then 429 with Retry-After (1-900) and a fixed message | 401,401,401,401,401 then 429, Retry-After 900, {"error":"Too many failed sign-in attempts. Try again in 15 minutes.","retryAfterSeconds":900} | PASS |
+| A locked unknown email gets the same response as a locked known one | same status, same keys, same message text | known: 429 [error,retryAfterSeconds] unknown: 429 [error,retryAfterSeconds]; same message: true | PASS |
+| A successful login clears the counter | 4 failures, success (200), 4 more failures still 401, then the 5th failure locks the 6th | 401,401,401,401 / 200 / 401,401,401,401 / 5th 401 / 6th 429 | PASS |
+| The lock expires after 15 minutes | the same correct login now works (200) | 200 | PASS |
+| Per-address limit | 20 failures from one address (different emails) -> the 21st is 429; another address is not affected | 20x401, then 429; other address 401 | PASS |
+| Unknown and known emails take comparable time (dummy hash kept) | both run bcrypt (> 20 ms) and are within a factor of 3 | unknown 77 ms, known 77 ms | PASS |
+| A deleted user's token stops working | before: 200/200; after the user is deleted: 401 on the API, /api/me and the page | 200/200 -> 401, 401, page denied=true | PASS |
+| Bumping token_version invalidates old tokens | 200 -> 401 for the old token; a new login works (200) | 200 -> 401; new login 200, 200 | PASS |
+| A role change in the database takes effect at once | the old warden token no longer works after the role changed (401) | 401 | PASS |
+| A password change signs out other sessions but keeps this one | change 200; old token 401; the new cookie from the response works (200) | 200; old 401; new 200 | PASS |
+| Admin 'Sign out everywhere' | warden 403 (token still works); admin 200 (token 401); signing in again works; unknown user 404; anonymous 401 | 403 (200); 200 (401); relogin 200; 404; 401 | PASS |
+| A correctly signed token for a user that does not exist | 401 (it was 200 before revocation existed) | 401 | PASS |
+| Pages show 'Access denied' for the wrong role | /violations, /student/leave, /parent/leave, /student/history: 24 role/page combinations as designed | 24/24 as designed | PASS |
+| A student cancels their own pending request | 200, then it is gone from the list | 200; listed before true, after false | PASS |
+| Cancelling twice | 404 (it no longer exists) | 404 | PASS |
+| Another student cannot cancel it | 404 and the request still exists | 404, rows 1 | PASS |
+| Parents, wardens and anonymous callers cannot cancel | 403, 403, 401 | 403, 403, 401 | PASS |
+| A decided request cannot be cancelled | approve 200, then cancel 409 and the row remains approved | 200, 409 This leave request has already been decided and cannot be cancelled | PASS |
+| Seeded approved and rejected requests survive a cancel attempt | 409 and 409, both rows still there | 409, 409, rows 2 | PASS |
+| Unknown and invalid ids | 404 and 400 | 404, 400 | PASS |
+| Resolving a violation records resolved_at | student 403; warden 200; resolved_at is now; the list shows resolvedAt; a second resolve is 409 | 403; 200; age 0 s; listed 2026-10-27 14:57:22.919934; again 409 | PASS |
+
+30/30 passed (twice in a row; the script removes its throw-away users and login attempts, and restores the violation it resolves).
+
+Honest limits of this test: the "unexpected database error" case goes through the sessions route's own generic message, not through the generic branch of `dbErrorResponse`; that branch is covered only by reading the code and by the unit check that unknown codes are not mapped. The timing check compares two bcrypt runs on this machine (78 ms each), not a statistical test. The per-address limit trusts `X-Forwarded-For`, which a client can spoof when there is no trusted proxy in front (the per-email limit does not depend on it).
+
+## Regression, after all Stage 4 changes
+| Suite | Result |
+|---|---|
+| `npx tsc --noEmit`, `npm run lint`, `npm run build` | pass (33 pages; the build log is clean) |
+| `db/test_cases.sql` | 98/98 |
+| `db/b_register_tests.sql` | 26/26 |
+| `db/b_reports_tests.sql` | 16/16 |
+| `npm run test:match` (cooldown 3 / cooldown 0) | 37/37, 34/34 |
+| `npm run test:register` | 31/31 |
+| `npm run test:faces` (real images through the API) | 13/13 |
+| `npm run test:reports` (after `demo:history`) | 14/14 |
+
+Two regressions were found by running these after the change and fixed: first, the new generic database-error handler also swallowed Next.js's own prerender control-flow errors on `/api/violations` and `/api/history` (visible as "unexpected error in a request" in the build log), so it now converts only errors that carry a database/system `code` and returns `null` for everything else; second, the two resolved-violation inserts mentioned above.
+
+## Not verified (needs you)
+- The new buttons in a real browser: *Cancel request* on `/student/leave`, *Sign out everywhere* on `/admin/students` (both use `window.confirm`), and the violations page showing "Resolved by ... on ...".
+- The Windows instructions in the README (the PowerShell loader was not changed and was not run).
+- `load_all.sh` on Linux (only macOS was used).
+- Behind a real reverse proxy: that `X-Forwarded-For` is set by a trusted proxy.
+- That the SVG diagrams render in your Markdown viewer (checked in Chrome, and both files parse as well-formed XML; GitHub renders the Mermaid blocks too).
+
