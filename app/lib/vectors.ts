@@ -1,14 +1,18 @@
 import { VECTOR_SIZE } from "./qdrant";
 
 /**
- * Validates a face descriptor (128 finite numbers) and returns a copy.
- * Descriptors are stored and searched exactly as the model produced them:
- * the model is trained for Euclidean distance, so they are NOT normalised.
+ * Validates a face embedding (512 finite numbers, not all zero) and returns an
+ * L2-normalised copy. The embedder already returns unit vectors; normalising
+ * again keeps cosine similarity equal to a plain dot product whatever the caller sent.
  */
-export function toDescriptor(input: unknown): number[] | null {
+export function toEmbedding(input: unknown): number[] | null {
   if (!Array.isArray(input) || input.length !== VECTOR_SIZE) return null;
+  let sum = 0;
   for (const x of input) {
     if (typeof x !== "number" || !Number.isFinite(x)) return null;
+    sum += x * x;
   }
-  return [...(input as number[])];
+  const norm = Math.sqrt(sum);
+  if (norm === 0) return null;
+  return (input as number[]).map((x) => x / norm);
 }

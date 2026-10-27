@@ -11,7 +11,7 @@ export default function EnrolPage() {
       <AppHeader />
       <main className="mx-auto w-full max-w-3xl p-8">
         <h1 className="text-2xl font-semibold">Face enrolment</h1>
-        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Admin only. Captures several frames and stores each face as a 128-number vector.</p>
+        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Admin only. Captures five guided frames, checks their quality and stores each face as a 512-number embedding. No photos are kept.</p>
         <Suspense fallback={<p className="text-sm">Loading…</p>}>
           <EnrolContent />
         </Suspense>
