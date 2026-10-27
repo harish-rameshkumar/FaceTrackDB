@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 import { Notice } from "@/components/ui/Notice";
 import { homeFor } from "@/lib/home";

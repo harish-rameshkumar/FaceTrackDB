@@ -2,9 +2,6 @@
 import { useId } from "react";
 import { cx } from "./cx";
 
-export const inputClasses =
-  "w-full min-h-10 rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted disabled:opacity-60 aria-[invalid=true]:border-danger";
-
 export interface ControlProps {
   id: string;
   "aria-describedby"?: string;

@@ -4,7 +4,8 @@ import { CameraStage } from "@/components/camera/CameraStage";
 import { useLiveFeedback } from "@/components/camera/useLiveFeedback";
 import { useCamera } from "@/components/useCamera";
 import { Button } from "@/components/ui/Button";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
 import { Notice } from "@/components/ui/Notice";
 import { captureFrame, sleep } from "@/lib/capture";
 

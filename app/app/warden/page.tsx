@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { Field } from "@/components/ui/Field";
+import { inputClasses } from "@/components/ui/styles";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -49,40 +50,32 @@ async function DashboardContent({ searchParams }: { searchParams: SearchParams }
     <div className="flex flex-col gap-6">
       <form method="get" aria-label="Filters" className="rounded-lg border border-border bg-surface p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <FormField label="Hostel (all tables)">
-            {(c) => (
-              <select {...c} name="hostel" defaultValue={f.hostelId ?? ""} className={inputClasses}>
+          <Field label="Hostel (all tables)">
+              <select name="hostel" defaultValue={f.hostelId ?? ""} className={inputClasses}>
                 <option value="">All hostels</option>
                 {hostels.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
               </select>
-            )}
-          </FormField>
-          <FormField label="Presence">
-            {(c) => (
-              <select {...c} name="presence" defaultValue={f.presence ?? ""} className={inputClasses}>
+            </Field>
+          <Field label="Presence">
+              <select name="presence" defaultValue={f.presence ?? ""} className={inputClasses}>
                 <option value="">Inside and outside</option>
                 {PRESENCE_VALUES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
-            )}
-          </FormField>
-          <FormField label="Student name (presence)">
-            {(c) => <input {...c} name="q" defaultValue={f.q} maxLength={50} placeholder="e.g. Arun" className={inputClasses} />}
-          </FormField>
-          <FormField label="Attendance order">
-            {(c) => (
-              <select {...c} name="sort" defaultValue={f.sort} className={inputClasses}>
+            </Field>
+          <Field label="Student name (presence)">
+            <input name="q" defaultValue={f.q} maxLength={50} placeholder="e.g. Arun" className={inputClasses} />
+          </Field>
+          <Field label="Attendance order">
+              <select name="sort" defaultValue={f.sort} className={inputClasses}>
                 {Object.entries(SORT_OPTIONS).map(([key, o]) => <option key={key} value={key}>{o.label}</option>)}
               </select>
-            )}
-          </FormField>
-          <FormField label="Violation type">
-            {(c) => (
-              <select {...c} name="vtype" defaultValue={f.vtype ?? ""} className={inputClasses}>
+            </Field>
+          <Field label="Violation type">
+              <select name="vtype" defaultValue={f.vtype ?? ""} className={inputClasses}>
                 <option value="">All types</option>
                 {VIOLATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
-            )}
-          </FormField>
+            </Field>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button type="submit" variant="primary">Apply</Button>

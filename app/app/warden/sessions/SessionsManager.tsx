@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
 import { Notice } from "@/components/ui/Notice";
 import { StatusPill } from "@/components/ui/StatusPill";
 

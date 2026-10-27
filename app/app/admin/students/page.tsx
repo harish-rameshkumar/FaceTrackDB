@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { Field } from "@/components/ui/Field";
+import { inputClasses } from "@/components/ui/styles";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -76,24 +77,20 @@ async function Content({ searchParams }: { searchParams: Search }) {
     <div className="flex flex-col gap-6">
       <form method="get" aria-label="Filters" className="rounded-lg border border-border bg-surface p-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <FormField label="Search (SRN, name, email)">{(c) => <input {...c} name="q" defaultValue={q} className={inputClasses} maxLength={100} />}</FormField>
-          <FormField label="Hostel">
-            {(c) => (
-              <select {...c} name="hostel" defaultValue={Number.isInteger(hostel) && hostel > 0 ? String(hostel) : ""} className={inputClasses}>
+          <Field label="Search (SRN, name, email)"><input name="q" defaultValue={q} className={inputClasses} maxLength={100} /></Field>
+          <Field label="Hostel">
+              <select name="hostel" defaultValue={Number.isInteger(hostel) && hostel > 0 ? String(hostel) : ""} className={inputClasses}>
                 <option value="">All</option>
                 {hostels.rows.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
               </select>
-            )}
-          </FormField>
-          <FormField label="Face enrolment">
-            {(c) => (
-              <select {...c} name="status" defaultValue={status} className={inputClasses}>
+            </Field>
+          <Field label="Face enrolment">
+              <select name="status" defaultValue={status} className={inputClasses}>
                 <option value="">All</option>
                 <option value="enrolled">Enrolled</option>
                 <option value="none">Not enrolled</option>
               </select>
-            )}
-          </FormField>
+            </Field>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button type="submit" variant="primary">Filter</Button>

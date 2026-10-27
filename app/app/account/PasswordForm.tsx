@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
 import { Notice } from "@/components/ui/Notice";
 import { MIN_PASSWORD_LENGTH } from "@/lib/registration";
 

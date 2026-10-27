@@ -14,7 +14,7 @@ export const metadata = { title: "Enrol face | FaceTrackDB" };
 
 export default function EnrolStudentPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <PageShell>
+    <PageShell suspendHeader>
       <Suspense fallback={<Spinner label="Loading" />}>
         <Content params={params} />
       </Suspense>

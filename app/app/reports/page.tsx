@@ -3,7 +3,8 @@ import { PageShell } from "@/components/PageShell";
 import { ReportView } from "@/components/reports/ReportView";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { Field } from "@/components/ui/Field";
+import { inputClasses } from "@/components/ui/styles";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
@@ -37,16 +38,14 @@ async function Content({ searchParams }: { searchParams: SearchParams }) {
       {historyNote && <Notice tone="warning" className="mb-4">{historyNote}</Notice>}
       <form method="get" aria-label="Report filters" className="mb-6 rounded-lg border border-border bg-surface p-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <FormField label="From">{(c) => <input {...c} type="date" name="from" defaultValue={filters.from} className={inputClasses} />}</FormField>
-          <FormField label="To">{(c) => <input {...c} type="date" name="to" defaultValue={filters.to} className={inputClasses} />}</FormField>
-          <FormField label="Hostel">
-            {(c) => (
-              <select {...c} name="hostel" defaultValue={filters.hostelId ?? ""} className={inputClasses}>
+          <Field label="From"><input type="date" name="from" defaultValue={filters.from} className={inputClasses} /></Field>
+          <Field label="To"><input type="date" name="to" defaultValue={filters.to} className={inputClasses} /></Field>
+          <Field label="Hostel">
+              <select name="hostel" defaultValue={filters.hostelId ?? ""} className={inputClasses}>
                 <option value="">All hostels</option>
                 {hostels.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
               </select>
-            )}
-          </FormField>
+            </Field>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="submit" variant="primary">Apply</Button>

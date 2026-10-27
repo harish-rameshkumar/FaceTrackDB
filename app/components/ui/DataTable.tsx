@@ -22,7 +22,7 @@ export function DataTable<T>({ columns, rows, rowKey, caption, empty, rowClassNa
     <table className="dt">
       {caption && <caption className="sr-only">{caption}</caption>}
       <thead>
-        <tr>{columns.map((c) => <th key={c.key} scope="col">{c.header}</th>)}</tr>
+        <tr>{columns.map((c) => <th key={c.key} scope="col">{c.header || <span className="sr-only">Actions</span>}</th>)}</tr>
       </thead>
       <tbody>
         {rows.map((row) => (

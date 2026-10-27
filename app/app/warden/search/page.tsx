@@ -4,7 +4,8 @@ import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FormField, inputClasses } from "@/components/ui/FormField";
+import { Field } from "@/components/ui/Field";
+import { inputClasses } from "@/components/ui/styles";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
@@ -54,16 +55,14 @@ async function SearchContent({ searchParams }: { searchParams: SearchParams }) {
   return (
     <div className="flex flex-col gap-6">
       <form method="get" className="flex flex-wrap items-end gap-3">
-        <FormField label="Search for" className="min-w-64 flex-1">
-          {(c) => <input {...c} name="q" defaultValue={q} maxLength={MAX_QUERY_LENGTH} placeholder="e.g. curfew, medical, &quot;roll call&quot;" className={inputClasses} />}
-        </FormField>
-        <FormField label="Look in">
-          {(c) => (
-            <select {...c} name="scope" defaultValue={scope} className={inputClasses}>
+        <Field label="Search for" className="min-w-64 flex-1">
+          <input name="q" defaultValue={q} maxLength={MAX_QUERY_LENGTH} placeholder="e.g. curfew, medical, &quot;roll call&quot;" className={inputClasses} />
+        </Field>
+        <Field label="Look in">
+              <select name="scope" defaultValue={scope} className={inputClasses}>
               {Object.entries(SCOPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
             </select>
-          )}
-        </FormField>
+            </Field>
         <Button type="submit" variant="primary">Search</Button>
       </form>
 
