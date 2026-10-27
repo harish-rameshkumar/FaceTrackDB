@@ -1,17 +1,20 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { inputClasses } from "@/components/ui/FormField";
+import { Notice } from "@/components/ui/Notice";
 
 interface Student { student_id: number; roll_no: string; name: string }
 
 export function ReviewActions({ eventId, candidateId, students }: { eventId: number; candidateId: number | null; students: Student[] }) {
   const router = useRouter();
   const [studentId, setStudentId] = useState<number | "">(candidateId ?? "");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"confirm" | "reject" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function decide(action: "confirm" | "reject") {
-    setBusy(true);
+    setBusy(action);
     setError(null);
     const res = await fetch(`/api/review/${eventId}`, {
       method: "POST",
@@ -21,27 +24,28 @@ export function ReviewActions({ eventId, candidateId, students }: { eventId: num
     if (res.ok) {
       router.refresh();
     } else {
-      setError((await res.json().catch(() => ({}))).error ?? "Failed");
-      setBusy(false);
+      setError((await res.json().catch(() => ({}))).error ?? "The decision could not be saved");
+      setBusy(null);
     }
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-48 flex-col gap-2">
       <select
-        className="rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-700"
+        className={inputClasses}
         value={studentId}
         onChange={(e) => setStudentId(e.target.value === "" ? "" : Number(e.target.value))}
-        disabled={busy}
+        disabled={busy !== null}
         aria-label={`Student for event ${eventId}`}
       >
+        {candidateId === null && <option value="">Choose a student…</option>}
         {students.map((s) => <option key={s.student_id} value={s.student_id}>{s.roll_no} · {s.name}</option>)}
       </select>
-      <div className="flex gap-2">
-        <button onClick={() => decide("confirm")} disabled={busy || studentId === ""} className="rounded bg-green-700 px-3 py-1 text-white disabled:opacity-40">Confirm</button>
-        <button onClick={() => decide("reject")} disabled={busy} className="rounded border border-zinc-400 px-3 py-1 disabled:opacity-40">Reject</button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="primary" size="sm" onClick={() => decide("confirm")} loading={busy === "confirm"} disabled={busy !== null || studentId === ""}>Confirm</Button>
+        <Button variant="secondary" size="sm" onClick={() => decide("reject")} loading={busy === "reject"} disabled={busy !== null}>Reject</Button>
       </div>
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <Notice tone="danger">{error}</Notice>}
     </div>
   );
 }
