@@ -1,11 +1,13 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 
-export const COLLECTION = "face_embeddings";
-export const VECTOR_SIZE = 128;
-// face-api descriptors are trained for Euclidean (L2) distance, so the
-// collection uses Euclid. In Qdrant a Euclid "score" is the distance itself:
-// smaller is closer.
-export const DISTANCE = "Euclid";
+// QDRANT_COLLECTION only exists so the tests can use a throw-away collection;
+// leave it unset in normal use.
+export const COLLECTION = process.env.QDRANT_COLLECTION?.trim() || "face_embeddings";
+// InsightFace ArcFace (buffalo_l) gives 512-d vectors trained for angular
+// similarity. The embedder returns them L2-normalised, and the collection uses
+// Cosine, so a Qdrant "score" is the cosine similarity itself: higher is closer.
+export const VECTOR_SIZE = 512;
+export const DISTANCE = "Cosine";
 
 const globalForQdrant = globalThis as unknown as { __ftQdrant?: QdrantClient };
 
@@ -26,7 +28,7 @@ export type CollectionStatus =
   | { state: "mismatch"; size?: number; distance?: string }
   | { state: "ok"; size: number; distance: string; points: number };
 
-/** Confirms the collection exists with 128 dimensions and cosine distance. */
+/** Confirms the collection exists with 512 dimensions and cosine distance. */
 export async function checkCollection(): Promise<CollectionStatus> {
   const q = getQdrant();
   const { collections } = await q.getCollections();
@@ -41,7 +43,7 @@ export async function checkCollection(): Promise<CollectionStatus> {
   return { state: "ok", size: cfg.size, distance: cfg.distance, points: info.points_count ?? 0 };
 }
 
-/** Creates the collection (128-d, Euclid) plus its student_id payload index. */
+/** Creates the collection (512-d, Cosine) plus its student_id payload index. */
 export async function createCollection(): Promise<void> {
   const q = getQdrant();
   await q.createCollection(COLLECTION, { vectors: { size: VECTOR_SIZE, distance: DISTANCE } });

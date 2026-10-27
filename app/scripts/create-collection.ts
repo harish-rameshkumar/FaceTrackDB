@@ -1,4 +1,4 @@
-// Idempotent: creates the face_embeddings collection (128-d, Euclid) if it
+// Idempotent: creates the face_embeddings collection (512-d, Cosine) if it
 // is missing, and fails loudly if it exists with a different configuration.
 // Run: npm run qdrant:init
 import { checkCollection, COLLECTION, createCollection, DISTANCE, VECTOR_SIZE } from "../lib/qdrant";

@@ -1,7 +1,7 @@
 // Deletes and recreates the Qdrant collection AND deletes every face_profiles
-// row, so PostgreSQL and Qdrant stay consistent. Needed when descriptors
-// change space (for example cosine -> Euclid): all old vectors are useless
-// and every student must be re-enrolled.
+// row, so PostgreSQL and Qdrant stay consistent. Needed when embeddings
+// change space (for example the move from 128-d face-api to 512-d ArcFace): all
+// old vectors are useless and every student must be re-enrolled.
 // face_profiles has no incoming foreign keys, and face_events (the scan
 // history) does not reference it, so the history is kept untouched.
 // Run: npm run qdrant:reset            (prints what would be deleted)
@@ -41,6 +41,7 @@ async function main() {
   }
   const after = await checkCollection();
   console.log("Done:", after);
+  console.log("Every student must now be enrolled again (admin > /enrol).");
   await pool.end();
 }
 
