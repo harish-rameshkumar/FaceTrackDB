@@ -17,7 +17,8 @@
     "test:register": "tsx --env-file=.env.local scripts/test-registration.ts",
     "demo:history": "tsx --env-file=.env.local scripts/demo-history.ts",
     "test:reports": "tsx --env-file=.env.local scripts/test-reports.ts",
-    "test:hardening": "tsx --env-file=.env.local scripts/test-hardening.ts"
+    "test:hardening": "tsx --env-file=.env.local scripts/test-hardening.ts",
+    "check:contrast": "tsx scripts/check-contrast.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.19.0",
