@@ -4,28 +4,31 @@ import { COLLECTION, getQdrant } from "./qdrant";
 export type Outcome = "matched" | "low_confidence" | "no_match";
 
 export interface Thresholds {
-  matchMax: number;
-  reviewMax: number;
-  marginMin: number;
+  matchMin: number; // student score at or above this: automatic match
+  reviewMin: number; // between reviewMin and matchMin: warden review; below: no_match
+  minMargin: number; // the winner must beat the best OTHER student by this much
 }
-
-// If the best match and the nearest face of a DIFFERENT student are closer
-// together than this, the scan is ambiguous and goes to the warden.
-export const MARGIN_MIN = 0.06;
 
 /**
- * Euclidean distance between face-api descriptors: the same person is
- * usually below about 0.6. The defaults are a starting point and must be
- * tuned with real faces from the real camera (see docs/vector-design.md).
+ * Cosine similarity between ArcFace embeddings (higher is closer, 1 = identical).
+ * These defaults are STARTING GUESSES, not measured values: calibrate them with
+ * `npm run faces:eval` on photos from your own camera (see docs/vector-design.md).
  */
 export function getThresholds(): Thresholds {
-  const matchMax = Number(process.env.MATCH_MAX_DISTANCE ?? "0.45");
-  const reviewMax = Number(process.env.REVIEW_MAX_DISTANCE ?? "0.60");
-  if (!Number.isFinite(matchMax) || !Number.isFinite(reviewMax) || matchMax <= 0 || reviewMax <= matchMax) {
-    throw new Error("MATCH_MAX_DISTANCE / REVIEW_MAX_DISTANCE are invalid (need 0 < MATCH < REVIEW)");
+  const matchMin = Number(process.env.MATCH_MIN_SIMILARITY ?? "0.50");
+  const reviewMin = Number(process.env.REVIEW_MIN_SIMILARITY ?? "0.35");
+  const minMargin = Number(process.env.MIN_MARGIN ?? "0.08");
+  if (
+    !Number.isFinite(matchMin) || !Number.isFinite(reviewMin) || !Number.isFinite(minMargin) ||
+    reviewMin <= 0 || matchMin <= reviewMin || matchMin > 1 || minMargin < 0
+  ) {
+    throw new Error("MATCH_MIN_SIMILARITY / REVIEW_MIN_SIMILARITY / MIN_MARGIN are invalid (need 0 < REVIEW < MATCH <= 1, MARGIN >= 0)");
   }
-  return { matchMax, reviewMax, marginMin: MARGIN_MIN };
+  return { matchMin, reviewMin, minMargin };
 }
+
+// A scan is accepted only if the same student wins this many usable frames.
+export const MIN_AGREEING_FRAMES = 2;
 
 export const DEFAULT_SCAN_COOLDOWN_SECONDS = 20;
 const warnedCooldownValues = new Set<string>();
@@ -73,53 +76,124 @@ export async function secondsUntilGateScanAllowed(client: PoolClient, studentId:
   return Math.min(remaining, cooldownSeconds); // a log row dated in the future still waits at most one cooldown
 }
 
-export interface Candidate {
+export interface PointHit {
   studentId: number;
-  faceProfileId: number | null;
-  distance: number;
+  similarity: number;
+}
+
+export interface StudentScore {
+  studentId: number;
+  score: number; // mean of the student's best two sample similarities (the best one if only one sample)
 }
 
 /**
- * distance <= matchMax -> matched; <= reviewMax -> low_confidence; else no_match.
- * Margin rule: a match whose runner-up (nearest face of another student) is
- * less than marginMin further away is downgraded to low_confidence.
+ * Groups search hits by student. A student's score is the mean of their best two
+ * sample similarities, or the best one if they have a single sample in the hits.
+ * Sorted best first.
  */
-export function classify(top: Candidate | null, runnerUp: Candidate | null, t: Thresholds): Outcome {
-  if (!top) return "no_match";
-  if (top.distance > t.reviewMax) return "no_match";
-  if (top.distance > t.matchMax) return "low_confidence";
-  if (runnerUp && runnerUp.studentId !== top.studentId && runnerUp.distance - top.distance < t.marginMin) {
-    return "low_confidence";
+export function rankStudents(hits: PointHit[]): StudentScore[] {
+  const byStudent = new Map<number, number[]>();
+  for (const h of hits) {
+    const list = byStudent.get(h.studentId) ?? [];
+    list.push(h.similarity);
+    byStudent.set(h.studentId, list);
   }
-  return "matched";
+  const ranked: StudentScore[] = [];
+  for (const [studentId, sims] of byStudent) {
+    sims.sort((a, b) => b - a);
+    const best = sims.slice(0, 2);
+    ranked.push({ studentId, score: best.reduce((x, y) => x + y, 0) / best.length });
+  }
+  return ranked.sort((a, b) => b.score - a.score);
+}
+
+export interface FrameVerdict {
+  outcome: Outcome;
+  top: StudentScore | null;
+  margin: number | null; // top.score - best other student's score; null if nobody else is in the hits
 }
 
 /**
- * Nearest stored face, plus the nearest face of a different student (the
- * runner-up). A student has several samples, so the 2nd-nearest point is
- * often the same student; we look a few points further for another one.
+ * One frame: score >= matchMin -> matched; >= reviewMin -> low_confidence; else no_match.
+ * Margin rule: a match whose margin over the best other student is below minMargin
+ * is downgraded to low_confidence.
  */
-export async function searchNearest(vector: number[]): Promise<{ top: Candidate | null; runnerUp: Candidate | null }> {
-  const { points } = await getQdrant().query(COLLECTION, { query: vector, limit: 10, with_payload: true });
-  const candidates = points.map(
-    (h): Candidate => ({
-      studentId: Number(h.payload?.student_id),
-      faceProfileId: h.payload?.face_profile_id == null ? null : Number(h.payload.face_profile_id),
-      distance: h.score, // Euclid: the score is the distance
-    }),
+export function classifyFrame(ranked: StudentScore[], t: Thresholds): FrameVerdict {
+  const top = ranked[0] ?? null;
+  if (!top || top.score < t.reviewMin) return { outcome: "no_match", top, margin: null };
+  const margin = ranked[1] ? top.score - ranked[1].score : null;
+  if (top.score < t.matchMin) return { outcome: "low_confidence", top, margin };
+  if (margin !== null && margin < t.minMargin) return { outcome: "low_confidence", top, margin };
+  return { outcome: "matched", top, margin };
+}
+
+export interface ScanDecision {
+  outcome: Outcome;
+  studentId: number | null;
+  similarity: number | null; // mean score of the frames that back the decision
+  margin: number | null; // smallest margin among those frames
+  usableFrames: number;
+  agreeingFrames: number;
+}
+
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+/**
+ * Combines the per-frame verdicts of one scan.
+ *  - matched: the same student is a confident match (outcome "matched") on at least
+ *    MIN_AGREEING_FRAMES frames.
+ *  - low_confidence: some frame saw a plausible student but the frames disagree or are
+ *    not confident enough; the student with the most votes is suggested to the warden.
+ *  - no_match: nobody reached reviewMin on any frame.
+ */
+export function combineFrames(verdicts: FrameVerdict[]): ScanDecision {
+  const usable = verdicts.length;
+  const votes = (pred: (v: FrameVerdict) => boolean) => {
+    const m = new Map<number, FrameVerdict[]>();
+    for (const v of verdicts) {
+      if (v.top && pred(v)) m.set(v.top.studentId, [...(m.get(v.top.studentId) ?? []), v]);
+    }
+    return [...m.entries()]
+      .map(([studentId, vs]) => ({ studentId, vs, score: mean(vs.map((v) => v.top!.score)) }))
+      .sort((a, b) => b.vs.length - a.vs.length || b.score - a.score);
+  };
+  const summarise = (c: { studentId: number; vs: FrameVerdict[]; score: number }, outcome: Outcome): ScanDecision => {
+    const margins = c.vs.map((v) => v.margin).filter((m): m is number => m !== null);
+    return {
+      outcome,
+      studentId: c.studentId,
+      similarity: c.score,
+      margin: margins.length ? Math.min(...margins) : null,
+      usableFrames: usable,
+      agreeingFrames: c.vs.length,
+    };
+  };
+
+  const confident = votes((v) => v.outcome === "matched")[0];
+  if (confident && confident.vs.length >= MIN_AGREEING_FRAMES) return summarise(confident, "matched");
+
+  const plausible = votes((v) => v.outcome !== "no_match")[0];
+  if (plausible) return summarise(plausible, "low_confidence");
+
+  const best = verdicts.reduce<number | null>((acc, v) => (v.top && (acc === null || v.top.score > acc) ? v.top.score : acc), null);
+  return { outcome: "no_match", studentId: null, similarity: best, margin: null, usableFrames: usable, agreeingFrames: 0 };
+}
+
+/** Top 10 stored samples nearest to the embedding, as student similarities. */
+export async function searchFrame(embedding: number[]): Promise<StudentScore[]> {
+  const { points } = await getQdrant().query(COLLECTION, { query: embedding, limit: 10, with_payload: true });
+  return rankStudents(
+    points.map((h) => ({ studentId: Number(h.payload?.student_id), similarity: h.score })), // Cosine: the score is the similarity
   );
-  const top = candidates[0] ?? null;
-  const runnerUp = top ? (candidates.find((c) => c.studentId !== top.studentId) ?? null) : null;
-  return { top, runnerUp };
 }
 
 /**
- * face_events.confidence is NUMERIC(4,3) CHECK 0..1, so a distance is stored
- * as confidence = max(0, 1 - distance), rounded to 3 places.
+ * face_events.confidence is NUMERIC(4,3) CHECK 0..1: the similarity clamped to
+ * 0..1 and rounded to 3 places.
  */
-export function toConfidence(distance: number | null): number | null {
-  if (distance === null) return null;
-  return Math.round(Math.max(0, Math.min(1, 1 - distance)) * 1000) / 1000;
+export function toConfidence(similarity: number | null): number | null {
+  if (similarity === null) return null;
+  return Math.round(Math.max(0, Math.min(1, similarity)) * 1000) / 1000;
 }
 
 // Clean, fixed messages for the database's FT*** business-rule errors
