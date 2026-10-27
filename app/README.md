@@ -1,36 +1,12 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# app/
 
-## Getting Started
+This folder is the Next.js 16 application (pages, API routes, scripts) for FaceTrackDB. It is not a standalone project: the database, the vector store and the embedding service live in the repository root.
 
-First, run the development server:
+- **What the project is, how to set it up, demo accounts and a demo script:** [../README.md](../README.md)
+- **How the pieces fit together:** [../docs/architecture.md](../docs/architecture.md)
+- **Face recognition design and thresholds:** [../docs/vector-design.md](../docs/vector-design.md)
+- **Tests and their results:** [../docs/test-results.md](../docs/test-results.md)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Next.js 16 differs from older versions (see [AGENTS.md](AGENTS.md)): database reads must run in a dynamic context, `searchParams` is a Promise, and `export const dynamic` is not allowed.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Common commands (run from this folder, after the root setup): `npm run dev`, `npm run build`, `npm run lint`, `npx tsc --noEmit`, and the `npm run test:*` and `npm run qdrant:*` scripts listed in the root README.

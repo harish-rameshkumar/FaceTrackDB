@@ -1,7 +1,109 @@
 # FaceTrackDB
-## Person B: face recognition, vector search and reporting
 
-Face embedding service (InsightFace), Qdrant setup, face enrolment and matching, reporting SQL (views, CTEs, window functions, full-text search), and the enrolment / gate / warden review pages. Design details: [docs/vector-design.md](docs/vector-design.md). Test results: [docs/test-results.md](docs/test-results.md). Queries: [docs/important-queries.md](docs/important-queries.md), [docs/query-optimization.md](docs/query-optimization.md).
+A hostel attendance and gate-tracking system for a university DBMS project. A student's face at the hostel gate or at the evening roll call is recognised, and the system records attendance, gate entries and exits, leave, and rule violations (late return, leaving without leave, missed roll call). Wardens, parents, security staff and an admin each get the pages for their role, and the warden gets SQL-driven reports with a presentation mode.
+
+**Stack:** PostgreSQL 16 (all records, rules, reports), Qdrant (face vectors), Next.js 16 / React 19 / TypeScript (pages and API), and a small Python service (InsightFace) that turns a face image into a 512-number embedding.
+
+## Objectives
+
+1. Replace paper registers with automatic, auditable attendance and gate records.
+2. Keep the business rules in the database (constraints, triggers, stored procedures, transactions), so they hold no matter which code writes the data.
+3. Use a vector database where it fits (similarity search over faces) and a relational database for everything else, and show why.
+4. Give each role only what it needs: students and parents see their own records, staff see operations, the admin manages people.
+5. Show the data: dashboards, full-text search and 11 reports built from varied SQL techniques.
+
+## Functional requirements
+
+| Area | What the system does |
+|---|---|
+| Accounts and roles | Login with email and password (bcrypt, signed session cookie); 5 roles: student, parent, warden, security, admin; sessions can be revoked; login attempts are rate-limited |
+| Registration | The admin registers a student with one or two parents in one transaction (logins included), records consent to store face data, and enrols the face (5 guided camera frames, quality checks, duplicate-face guard) |
+| Gate and roll call | Security scans faces at the gate (in/out, with a cooldown) or during a roll call; uncertain scans go to the warden's review queue; wardens create roll calls and close them (absent students and violations are generated) |
+| Leave | Students request leave and may cancel a request while it is pending; a parent of that student approves or rejects it; decided leave is final; approved leave suppresses violations |
+| Violations | Raised by the database rules; wardens and admins resolve them (the time is recorded) |
+| Warden tools | Presence and attendance dashboard with filters, full-text search, review queue, reports and presentation mode with PDF export |
+| Reports | 11 reports: CTE, GROUP BY/HAVING, window functions (SUM OVER, RANK, LEAD), FILTER and median, histogram, subqueries, full-text |
+| Privacy | No photos are stored, only embeddings; deleting a student removes them; see [the policy](docs/privacy-and-biometric-policy.md) |
+
+## Roles and demo accounts
+
+Every account created by `db/seed.sql` has the same demo password, set by `db/demo_passwords.sql`: **`FaceTrack@123`**. It is for development and demos only; change it for anything real (each user can change theirs at `/account`).
+
+| Role | Email | What they can do |
+|---|---|---|
+| admin | `admin1@facetrack.test` | Students, registration, face enrolment, roll calls, reports, gate, review |
+| warden | `warden1@facetrack.test` | Dashboard, search, review queue, roll calls, reports, violations |
+| security | `security1@facetrack.test` | Gate scanner |
+| student | `arun.kumar@facetrack.test` (Arun Kumar, Aryabhatta Boys Hostel) | Own leave, history, violations |
+| student | `karthik.r@facetrack.test`, `rahul.v@facetrack.test` (same hostel) | same |
+| student | `divya.s@facetrack.test`, `meena.r@facetrack.test`, `sneha.m@facetrack.test` (Kalam Girls Hostel) | same |
+| parent | `parent.senthil@facetrack.test`, `parent.lakshmi@facetrack.test` (Arun's father and mother) | Decide their ward's leave, see their violations |
+| parent | `parent.ramanathan@facetrack.test` (father of Karthik and Meena) | same, two wards |
+| parent | `parent.venkatesh@facetrack.test` (Rahul), `parent.sumathi@facetrack.test` (Divya), `parent.murugan@facetrack.test` (Sneha, guardian) | same |
+
+## Architecture
+
+![Components](docs/architecture-components.svg)
+
+The browser only captures camera frames and shows pages. Next.js checks the role on every request, sends frames to the embedder, searches Qdrant, and writes everything that matters to PostgreSQL in one transaction. The request flow of a gate scan and the security notes are in [docs/architecture.md](docs/architecture.md).
+
+**Why two databases.** PostgreSQL holds everything relational and rule-bound (students, hostels, sessions, attendance, gate log, leave, violations) with keys, constraints, triggers, procedures and transactions. Qdrant is built for one thing PostgreSQL cannot do well: nearest-neighbour search over vectors ("which of the stored faces is closest to this one?"), with an HNSW index and cosine distance. They are linked by `face_profiles.qdrant_point_id` and the `student_id` in each vector's payload. The Python service only produces embeddings; all records, rules and reports stay in PostgreSQL. More in [docs/vector-design.md](docs/vector-design.md).
+
+## Setup
+
+Needs Docker, Node 20+, and for the camera pages a webcam and a browser on `localhost` or HTTPS.
+
+**macOS / Linux**
+```bash
+cp .env.example .env && cp .env app/.env.local
+# edit both files: passwords, QDRANT_API_KEY, EMBEDDER_TOKEN, and JWT_SECRET (openssl rand -hex 32) must be set
+docker compose up -d --build          # PostgreSQL, Qdrant and the embedder (first start downloads ~280 MB of models)
+./db/load_all.sh                      # schema, seed data, migrations, demo passwords, reports (about a minute)
+cd app && npm install && npm run qdrant:init && npm run dev     # http://localhost:3000
+```
+
+**Windows (PowerShell)**
+```powershell
+Copy-Item .env.example .env; Copy-Item .env app\.env.local     # edit both files as above
+docker compose up -d --build
+powershell -ExecutionPolicy Bypass -File .\db\load_all.ps1      # base SQL and demo passwords
+bash ./db/migrate.sh; bash ./db/load_b.sh                       # migrations and reports (needs Git Bash or WSL)
+cd app; npm install; npm run qdrant:init; npm run dev
+```
+`load_all.ps1` loads the base files; the migrations only repeat what `schema.sql` already contains, and `load_b.sh` loads the reporting and registration SQL. The step-by-step version with every option is in the reference below. (The Windows commands are written from the PowerShell loader that already existed and were not run on this Mac.)
+
+**Never reload the schema on a database you want to keep.** `./db/load_all.sh` refuses to run while `face_profiles` holds enrolled faces unless you add `--yes`, because reloading drops them and leaves their vectors orphaned in Qdrant; afterwards run `cd app && npm run qdrant:reset -- --yes` and enrol everyone again. To upgrade an existing database, use `./db/migrate.sh`: it only adds what is missing (see `db/migrations/`).
+
+## Demo script
+
+1. **Sign in as each role** (table above): `/login`, then look at the navigation each one gets.
+2. **Register a student and parents** (admin): *Students > Register student*. Fill in the student and one or two parents, tick the consent box, copy the one-time credentials, then continue to **face enrolment**: follow the on-screen prompts (five frames).
+3. **Request leave** (sign in as the new student, or `arun.kumar@facetrack.test`): *My leave*, send a request for tomorrow. Try *Cancel request* on a pending one.
+4. **Parent approves**: sign in as that student's parent, *Leave requests*, approve. Note the decision is now final.
+5. **Create a roll call** (warden or admin): *Roll calls*, a window that includes the current time (it must not be in the past).
+6. **Scan** (security or admin): *Gate*, purpose "Roll call", scan the enrolled face; then purpose "Gate in/out" and watch the IN/OUT alternate (the cooldown stops repeats).
+7. **Close the roll call** once its window has ended (*Roll calls > Close roll call*): the dialog shows how many students will be marked absent; absent students without approved leave get a *missed attendance* violation.
+8. **Resolve the violation** (warden): *Violations > Mark resolved*; the resolution time is shown.
+9. **Reports** (warden or admin): *Reports*; to have data to show, run `cd app && npm run demo:history -- --days 30 --yes` first (simulated, and labelled so). Open **Presentation mode** and move with the arrow keys; *Print / PDF* exports one slide per page.
+
+## Troubleshooting
+
+| Problem | What to check |
+|---|---|
+| `Cannot connect to the Docker daemon` / nothing answers on 5432, 6333, 8001 | Start Docker Desktop, then `docker compose up -d`. `docker compose ps` should show postgres, qdrant and embedder (healthy). |
+| Login answers **500** and the server log says `JWT_SECRET ...` | `JWT_SECRET` in `app/.env.local` is missing, shorter than 32 characters, or a placeholder (it contains "replace", "change_me", "example", looks like "secret123", or repeats one character). Set `openssl rand -hex 32` and restart the server. |
+| Login answers **429** "Too many failed sign-in attempts" | 5 wrong passwords for that email (or 20 from one address) in 15 minutes. Wait, or clear it: `DELETE FROM login_attempts WHERE email = '...'`. |
+| Everything signed me out | A password change or the admin's *Sign out everywhere* revokes tokens, and a deleted user's token stops working at once. Sign in again. |
+| `/api/health` says `collection: "mismatch"` | The Qdrant collection is the old 128-d one. `cd app && npm run qdrant:reset -- --yes` and enrol again. |
+| Scans fail with "The face recognition service is not available" | The embedder is down or `EMBEDDER_TOKEN` differs between `.env` and `app/.env.local`: `curl http://127.0.0.1:8001/health`, `docker compose logs embedder`. |
+| I reloaded `schema.sql` and faces stopped matching | Reloading drops `face_profiles` but not Qdrant. `npm run qdrant:reset -- --yes`, then re-enrol (see the warning above). |
+| Reports page says it could not be loaded | Run `./db/load_b.sh` (it creates the report functions). |
+| `next dev` says another server is already running | Only one dev server per project is allowed. Stop the other one (it prints its PID). |
+| The camera page cannot open the camera | Use `http://localhost:3000` or HTTPS, and allow camera access. |
+
+---
+
+# Reference
 
 ### Setup
 
@@ -12,7 +114,7 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
    cp .env.example .env            # read by docker compose and db/load_b.sh
    cp .env app/.env.local          # read by the Next.js app and the scripts
    ```
-   Edit both: set real values for `POSTGRES_PASSWORD` (and the same password inside `DATABASE_URL`), set `QDRANT_API_KEY` to a long random string (for example `openssl rand -hex 16`), and set `JWT_SECRET` to a random string of **at least 32 characters** (for example `openssl rand -hex 32`); login refuses to work with a shorter or missing secret, and `app/.env.local` needs the same values. Also set `EMBEDDER_TOKEN` (a shared secret for the face embedding service, at least 16 characters, for example `openssl rand -hex 16`) in both files; `EMBEDDER_URL` is `http://127.0.0.1:8001`.
+   Edit both: set real values for `POSTGRES_PASSWORD` (and the same password inside `DATABASE_URL`), set `QDRANT_API_KEY` to a long random string (for example `openssl rand -hex 16`), and set `JWT_SECRET` (it is empty in `.env.example` on purpose) to a random string of **at least 32 characters**: `openssl rand -hex 32`. Login fails (HTTP 500) with a missing or short secret, a placeholder (it contains `replace`, `change_me`, `example`, ends in `secret` plus a few characters) or one repeated character. `app/.env.local` needs the same values. Also set `EMBEDDER_TOKEN` (a shared secret for the face embedding service, at least 16 characters, for example `openssl rand -hex 16`) in both files; `EMBEDDER_URL` is `http://127.0.0.1:8001`.
 2. **Start the databases** (ports are bound to 127.0.0.1 only):
    ```bash
    docker compose up -d --build
@@ -20,7 +122,7 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
    This also builds and starts the **embedder** (the InsightFace face-embedding service in [embedder/](embedder/README.md)). The first build takes a few minutes and the first start downloads the model pack (about 280 MB) into a Docker volume; check with `curl http://127.0.0.1:8001/health` and `docker compose exec embedder python smoke_test.py`. If Docker cannot build it on your machine, use the local-virtualenv alternative described in `embedder/README.md`; the app only needs `EMBEDDER_URL`. The InsightFace pretrained models are for non-commercial research use only (this is a university project).
 
    If the containers already exist from an older compose file, recreate them so the new port binding and Qdrant API key take effect; data volumes are kept: `docker compose down && docker compose up -d`.
-3. **Load the base SQL** in this order (Person A's files; `load_all.ps1` does the same on Windows). `demo_passwords.sql` must come after `seed.sql`: the seed has placeholder password hashes, so nobody can sign in without it.
+3. **Load the base SQL.** The one-command way on macOS/Linux is `./db/load_all.sh` (it loads the files below in order, then `db/migrate.sh`, `demo_passwords.sql` and `./db/load_b.sh`, and tells you to run `qdrant:reset`); `load_all.ps1` does the base files on Windows. By hand, in this order (`demo_passwords.sql` must come after `seed.sql`: the seed has placeholder password hashes, so nobody can sign in without it):
    ```bash
    set -a; . ./.env; set +a
    for f in settings schema seed triggers procedures demo_passwords; do
@@ -50,7 +152,9 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 | `/admin/students`, `/admin/students/new` | admin | list with search and filters (SRN, name, hostel, enrolment), register a student with one or two parents (creates the logins in one transaction), then guided face enrolment, re-enrol, delete |
 | `POST /api/admin/students`, `DELETE /api/admin/students/[id]` | admin | register / delete (delete only when the student has no attendance, gate, violation, leave or scan history) |
 | `/warden/sessions`, `GET/POST /api/sessions`, `GET/POST /api/sessions/[id]/close` | warden, admin | create roll calls (overlaps and past times refused), close one after it ends (a dialog shows how many students will be marked absent) |
-| `/student/leave`, `/parent/leave`, `/violations` | student, parent, warden/admin (violations) | leave requests and decisions, violations list (Person A) |
+| `/student/leave`, `/parent/leave`, `/violations` | student, parent, warden/admin (violations) | leave requests and decisions, violations list. Each page checks the role itself and shows *Access denied* otherwise |
+| `DELETE /api/leave/[id]` | student | cancel your own request while it is **pending**; a decided (approved or rejected) request is final and is refused with 409 |
+| `POST /api/admin/users/[id]/signout` | admin | "Sign out everywhere": adds 1 to `users.token_version`, so every token of that user stops working |
 | `/warden` | warden, admin | dashboard: presence and attendance tables with filters, open violations, monthly attendance per hostel (the summary cards were removed; scans waiting for review are on `/warden/review`) |
 | `/reports`, `/reports/present` | warden, admin | 11 SQL-driven reports with charts, filters (date range, hostel), a **presentation mode** (full-screen slides, arrow keys) and print/PDF export; each slide has the SQL concept it uses and a "Show query" panel |
 | `/warden/search` | warden, admin | full-text search over violation details and leave reasons, ranked with highlighted matches |
@@ -98,6 +202,8 @@ A student's score is the mean of their best two sample similarities. At the gate
 **Upgrading from the old 128-d face-api version:** the old vectors are invalid. Run `cd app && npm run qdrant:reset -- --yes` (prints what it will delete, then deletes the `face_profiles` rows and recreates the 512-d collection; scan history is kept) and re-enrol everyone at `/enrol`.
 
 ### Tests
+
+Hardening (fixed error messages, login limits, JWT secret, revocation, page access, leave cancellation, `resolved_at`; 30 checks; needs `npm run build` first because it starts a second copy of the app on port 3299): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:hardening`. SQL: `db/test_cases.sql` now has 98 checks (the extra 27 cover `resolved_at`, `token_version` and the login limit functions).
 
 Registration, deletion, roll calls and password change (HTTP, against a scratch database and a running server; 31 checks): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:register`. The SQL functions: `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_register_tests.sql` (26 checks, rolls back).
 
