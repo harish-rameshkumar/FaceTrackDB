@@ -1,11 +1,21 @@
 # FaceTrackDB: SQL Tests, Queries and Index Evidence (Phase 5)
 
-Everything here was run against PostgreSQL 16, the same major version as the project's Docker image, on a freshly loaded database (`db\load_all.ps1`). Timings are from one test machine; yours will differ, so run the files and screenshot your own output.
+Everything here was run against PostgreSQL 16 (the project's Docker image) on a freshly loaded database. The timings in section 4 were measured on the author's laptop with Docker Desktop; other machines will show different numbers but the same plans.
+
+**Run these on a separate test database,** so the live database (and the enrolled faces that belong to it) are never touched. `load_all.ps1` is not used for this, because it recreates every table, including `face_profiles`:
+
+```powershell
+docker compose exec postgres psql -U facetrack -d postgres -c "CREATE DATABASE facetrack_test"
+foreach ($f in 'settings','schema','seed','triggers','procedures') { Get-Content "db\$f.sql" | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U facetrack -d facetrack_test | Out-Null }
+```
+
+In the commands below, use `-d facetrack_test` for the test database. `queries.sql` and `reports.sql` only read data, so they are also safe on the live database (`-d facetrackdb`), but the numbers will include whatever has been entered since the seed data.
 
 | File | What it does | How to run |
 |---|---|---|
 | `db/test_cases.sql` | 71 self-checking tests, prints PASS or FAIL | `Get-Content db\test_cases.sql \| docker compose exec -T postgres psql -U facetrack -d facetrackdb` |
 | `db/queries.sql` | 10 important queries (JOIN, GROUP BY, HAVING, subqueries) | same command with `db\queries.sql` |
+| `db/reports.sql` | 5 demo reports: an average or total per hostel, camera, gate and student | same command with `db\reports.sql` |
 | `db/explain_demo.sql` | `EXPLAIN ANALYZE` before and after three indexes | same command with `db\explain_demo.sql` |
 
 `test_cases.sql` and `explain_demo.sql` run inside one transaction and end with ROLLBACK, so they leave the database unchanged and can be repeated. `queries.sql` only reads.
@@ -55,25 +65,79 @@ Run on the seed data. All are in `db/queries.sql`.
 | Q9 Recognition results by outcome | GROUP BY, avg | 11 matched (0.924), 1 low_confidence (0.712), 1 no_match (0.512) |
 | Q10 Students below the average scan confidence | subquery inside HAVING | Karthik R (0.874), Rahul V (0.902) |
 
-## 3. Index evidence with EXPLAIN ANALYZE
+## 3. Reports
+
+`db/reports.sql` gives one number per group, in the style of "average salary of every department". Real output on the seed data (test database):
+
+**Report 1. Average attendance percentage of every hostel** (`JOIN`, `GROUP BY`, `FILTER`)
+```
+         hostel         | students | roll_call_marks | attendance_percent
+------------------------+----------+-----------------+--------------------
+ Aryabhatta Boys Hostel |        3 |               6 |               83.3
+ Kalam Girls Hostel     |        3 |               3 |               66.7
+```
+
+**Report 2. Average face-match confidence of every camera** (`LEFT JOIN`, `AVG`, `GROUP BY`)
+```
+ camera_id |         hostel         |   gate    |        location        | scans | avg_confidence | needed_attention
+-----------+------------------------+-----------+------------------------+-------+----------------+------------------
+         1 | Aryabhatta Boys Hostel | Main Gate | Main gate, entry lane  |     7 |          0.895 |                1
+         2 | Aryabhatta Boys Hostel | Main Gate | Main gate, exit lane   |     2 |          0.913 |                0
+         3 | Aryabhatta Boys Hostel | Back Gate | Back gate              |     0 |                |                0
+         4 | Kalam Girls Hostel     | Main Gate | Girls hostel main gate |     4 |          0.823 |                1
+```
+Camera 3 has no scans, and its average is empty because there is nothing to average. The `LEFT JOIN` keeps it in the report.
+
+**Report 3. Leave requests of every hostel: count and average length in days** (`AVG` of a date difference)
+```
+         hostel         |  status  | requests | avg_days
+------------------------+----------+----------+----------
+ Aryabhatta Boys Hostel | approved |        2 |      2.0
+ Aryabhatta Boys Hostel | rejected |        1 |      2.0
+ Kalam Girls Hostel     | pending  |        1 |      3.0
+```
+
+**Report 4. Violations of every student, most first**
+```
+ roll_no |    name    |         hostel         | violations | still_open
+---------+------------+------------------------+------------+------------
+ 21EC012 | Rahul V    | Aryabhatta Boys Hostel |          2 |          1
+ 21EC020 | Sneha M    | Kalam Girls Hostel     |          2 |          2
+ 21CS001 | Arun Kumar | Aryabhatta Boys Hostel |          0 |          0
+ 21CS007 | Karthik R  | Aryabhatta Boys Hostel |          0 |          0
+ 21CS014 | Divya S    | Kalam Girls Hostel     |          0 |          0
+ 21IT003 | Meena R    | Kalam Girls Hostel     |          0 |          0
+```
+
+**Report 5. Gate traffic: entries and exits per gate**
+```
+         hostel         |   gate    | entries | exits | total
+------------------------+-----------+---------+-------+-------
+ Aryabhatta Boys Hostel | Back Gate |       0 |     0 |     0
+ Aryabhatta Boys Hostel | Main Gate |       2 |     2 |     4
+ Kalam Girls Hostel     | Main Gate |       0 |     1 |     1
+```
+
+## 4. Index evidence with EXPLAIN ANALYZE
 
 `explain_demo.sql` generates 300,000 gate events, 40,000 roll calls, 120,000 attendance rows and 120,000 violations (1,203 of them open). For each of three real indexes from `schema.sql`, it drops the index, runs the query, recreates the index, and runs the query again. Everything is rolled back at the end.
 
 | Query | Index | Before | After | Faster by |
 |---|---|---|---|---|
-| Last 10 gate events of one student | `idx_log_student_time` | Parallel Seq Scan + sort, 19.945 ms | Index Scan, 0.033 ms | about 600 times |
-| One gate's traffic for one week | `idx_log_gate_time` | Parallel Seq Scan, 17.226 ms | Bitmap Index Scan, 0.538 ms | about 32 times |
-| Oldest 20 open violations (warden queue) | `idx_violations_open` (partial) | Seq Scan + sort, 7.707 ms | Index Scan, 0.028 ms | about 275 times |
+| Last 10 gate events of one student | `idx_log_student_time` | Parallel Seq Scan + sort, 21.811 ms | Index Scan, 0.156 ms | about 140 times |
+| One gate's traffic for one week | `idx_log_gate_time` | Parallel Seq Scan, 54.566 ms | Bitmap Index Scan, 0.643 ms | about 85 times |
+| Oldest 20 open violations (warden queue) | `idx_violations_open` (partial) | Seq Scan + sort, 13.062 ms | Index Scan, 0.053 ms | about 245 times |
 
 **Why the partial index is worth it.** `idx_violations_open` only stores rows where `status = 'open'`, so it is **48 kB**, while the ordinary index on the same table (`idx_violations_student`) is **6,624 kB**. The warden's queue only ever asks about open violations, so the small index is enough, and it stays small as resolved violations pile up.
 
 **Why the first index matters.** Without it, PostgreSQL reads every gate event (125,002 rows removed by the filter in each of two workers) and sorts what is left. With it, the rows are already stored in the right order, so it reads exactly 10.
 
-## 4. Where this fits in the documentation PDF
+## 5. Where this fits in the documentation PDF
 
 | Required section | Material |
 |---|---|
 | SQL implementation | `schema.sql`, `seed.sql`, `triggers.sql`, `procedures.sql` |
 | Important queries | Section 2 above |
+| Reports in the demo | Section 3 above |
 | Testing results | Section 1 above, plus screenshots of the PASS/FAIL table |
-| Indexing | Section 3 above, plus screenshots of the plans |
+| Indexing | Section 4 above, plus screenshots of the plans |

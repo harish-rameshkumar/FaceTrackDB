@@ -1,0 +1,48 @@
+﻿
+=== REPORT 1. Average attendance percentage of every hostel ===
+         hostel         | students | roll_call_marks | attendance_percent 
+------------------------+----------+-----------------+--------------------
+ Aryabhatta Boys Hostel |        3 |               6 |               83.3
+ Kalam Girls Hostel     |        3 |               3 |               66.7
+(2 rows)
+
+
+=== REPORT 2. Average face-match confidence of every camera ===
+ camera_id |         hostel         |   gate    |        location        | scans | avg_confidence | needed_attention 
+-----------+------------------------+-----------+------------------------+-------+----------------+------------------
+         1 | Aryabhatta Boys Hostel | Main Gate | Main gate, entry lane  |     7 |          0.895 |                1
+         2 | Aryabhatta Boys Hostel | Main Gate | Main gate, exit lane   |     2 |          0.913 |                0
+         3 | Aryabhatta Boys Hostel | Back Gate | Back gate              |     0 |                |                0
+         4 | Kalam Girls Hostel     | Main Gate | Girls hostel main gate |     4 |          0.823 |                1
+(4 rows)
+
+
+=== REPORT 3. Leave requests of every hostel: count and average length in days ===
+         hostel         |  status  | requests | avg_days 
+------------------------+----------+----------+----------
+ Aryabhatta Boys Hostel | approved |        2 |      2.0
+ Aryabhatta Boys Hostel | rejected |        1 |      2.0
+ Kalam Girls Hostel     | pending  |        1 |      3.0
+(3 rows)
+
+
+=== REPORT 4. Violations of every student (most first) ===
+ roll_no |    name    |         hostel         | violations | still_open 
+---------+------------+------------------------+------------+------------
+ 21EC012 | Rahul V    | Aryabhatta Boys Hostel |          2 |          1
+ 21EC020 | Sneha M    | Kalam Girls Hostel     |          2 |          2
+ 21CS001 | Arun Kumar | Aryabhatta Boys Hostel |          0 |          0
+ 21CS007 | Karthik R  | Aryabhatta Boys Hostel |          0 |          0
+ 21CS014 | Divya S    | Kalam Girls Hostel     |          0 |          0
+ 21IT003 | Meena R    | Kalam Girls Hostel     |          0 |          0
+(6 rows)
+
+
+=== REPORT 5. Gate traffic: entries and exits per gate ===
+         hostel         |   gate    | entries | exits | total 
+------------------------+-----------+---------+-------+-------
+ Aryabhatta Boys Hostel | Back Gate |       0 |     0 |     0
+ Aryabhatta Boys Hostel | Main Gate |       2 |     2 |     4
+ Kalam Girls Hostel     | Main Gate |       0 |     1 |     1
+(3 rows)
+
