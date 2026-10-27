@@ -148,3 +148,13 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 .DS_Store
+
+# Face photos and evaluation sets are biometric data: never commit them (see docs/privacy-and-biometric-policy.md)
+face-eval/
+**/face-eval/
+evalset/
+**/evalset/
+photos/
+**/photos/
+*.mjpeg
+*.y4m
