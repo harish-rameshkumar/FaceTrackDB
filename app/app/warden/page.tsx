@@ -4,7 +4,7 @@ import { AccessDenied } from "@/components/AccessDenied";
 import AppHeader from "@/components/AppHeader";
 import { AuthError, requireRole } from "@/lib/auth";
 import {
-  getAttendance, getHostels, getMonthlyAttendance, getOpenViolations, getPresence, getSummary, parseFilters,
+  getAttendance, getHostels, getMonthlyAttendance, getOpenViolations, getPresence, parseFilters,
   LOW_ATTENDANCE_PCT, PRESENCE_VALUES, ROW_LIMIT, SORT_OPTIONS, VIOLATION_TYPES, type Limited,
 } from "@/lib/dashboard";
 
@@ -41,20 +41,12 @@ async function DashboardContent({ searchParams }: { searchParams: SearchParams }
 
   const hostels = await getHostels();
   const f = parseFilters(await searchParams, hostels);
-  const [summary, presence, attendance, violations, monthly] = await Promise.all([
-    getSummary(), getPresence(f), getAttendance(f), getOpenViolations(f), getMonthlyAttendance(),
+  const [presence, attendance, violations, monthly] = await Promise.all([
+    getPresence(f), getAttendance(f), getOpenViolations(f), getMonthlyAttendance(),
   ]);
 
   return (
     <div className="flex flex-col gap-10">
-      <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Card label="Students inside" value={summary.inside} />
-        <Card label="Students outside" value={summary.outside} />
-        <Card label="On approved leave today" value={summary.onLeave} />
-        <Card label="Open violations" value={summary.openViolations} tone={summary.openViolations > 0 ? "warn" : undefined} />
-        <Card label="Scans waiting for review" value={summary.reviewWaiting} href="/warden/review" tone={summary.reviewWaiting > 0 ? "warn" : undefined} />
-      </section>
-
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-300 p-4 dark:border-zinc-700">
         <label className="flex flex-col gap-1 text-sm">Hostel (all tables)
           <select name="hostel" defaultValue={f.hostelId ?? ""} className={field}>
@@ -152,17 +144,6 @@ async function DashboardContent({ searchParams }: { searchParams: SearchParams }
       </Section>
     </div>
   );
-}
-
-function Card({ label, value, href, tone }: { label: string; value: number; href?: string; tone?: "warn" }) {
-  const body = (
-    <>
-      <span className="block text-3xl font-semibold">{value}</span>
-      <span className="mt-1 block text-sm text-zinc-600 dark:text-zinc-400">{label}</span>
-    </>
-  );
-  const cls = `rounded-lg border p-4 ${tone === "warn" ? "border-amber-500" : "border-zinc-300 dark:border-zinc-700"}`;
-  return href ? <Link href={href} className={`${cls} block hover:bg-zinc-100 dark:hover:bg-zinc-900`}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
 function Section({ title, note, children }: { title: string; note?: React.ReactNode; children: React.ReactNode }) {
