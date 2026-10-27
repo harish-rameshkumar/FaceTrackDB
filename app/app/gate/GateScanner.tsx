@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CameraView, useCamera } from "@/components/CameraView";
+import { CameraStage } from "@/components/camera/CameraStage";
+import { useLiveFeedback } from "@/components/camera/useLiveFeedback";
+import { useCamera } from "@/components/useCamera";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { FormField, inputClasses } from "@/components/ui/FormField";
+import { AlertIcon, CheckIcon, CrossIcon, InfoIcon } from "@/components/ui/icons";
+import { Notice } from "@/components/ui/Notice";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { captureFrame, sleep } from "@/lib/capture";
 
 interface Cam { camera_id: number; location: string | null; gate: string; hostel: string }
@@ -36,14 +44,18 @@ export function GateScanner({ cameras }: { cameras: Cam[] }) {
   const [history, setHistory] = useState<ScanEntry[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const scanning = useRef(false);
+  const [scanBusy, setScanBusy] = useState(false); // only drives the live hints: they pause while a scan runs
   const pausedUntil = useRef(0); // auto-scan skips its ticks until this time (ms since epoch)
   const [cooldown, setCooldown] = useState<{ name: string | null; until: number } | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [cooldownTotal, setCooldownTotal] = useState(0);
+  const feedback = useLiveFeedback(videoRef, ready, !scanBusy);
 
   async function scan(fromAuto = false) {
     if (scanning.current || cameraId === "" || !videoRef.current) return;
     if (fromAuto && Date.now() < pausedUntil.current) return;
     scanning.current = true;
+    setScanBusy(true);
     setNote(null);
     try {
       // three frames about 300 ms apart; the server needs the same student on at least two
@@ -67,6 +79,7 @@ export function GateScanner({ cameras }: { cameras: Cam[] }) {
         const wait = Math.max(1, body.retryAfterSeconds);
         setCooldown({ name: body.student?.name ?? null, until: Date.now() + wait * 1000 });
         setCooldownSeconds(wait);
+        setCooldownTotal(wait);
         pausedUntil.current = Date.now() + Math.min(wait, AUTO_BACKOFF_MAX_SECONDS) * 1000;
         return;
       }
@@ -78,6 +91,7 @@ export function GateScanner({ cameras }: { cameras: Cam[] }) {
       setNote("Scan failed. Check the connection and try again.");
     } finally {
       scanning.current = false;
+      setScanBusy(false);
     }
   }
 
@@ -98,60 +112,69 @@ export function GateScanner({ cameras }: { cameras: Cam[] }) {
     return () => clearInterval(id);
   }, [cooldown]);
 
-  const field = "rounded border border-zinc-300 bg-transparent p-2 text-sm dark:border-zinc-700";
-
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm">Camera
-          <select className={field} value={cameraId} onChange={(e) => setCameraId(Number(e.target.value))}>
-            {cameras.map((c) => <option key={c.camera_id} value={c.camera_id}>{c.hostel} · {c.gate} · {c.location ?? `camera ${c.camera_id}`}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">Purpose
-          <select className={field} value={purpose} onChange={(e) => setPurpose(e.target.value as typeof purpose)}>
-            <option value="entry_exit">Gate in/out</option>
-            <option value="attendance">Roll call</option>
-          </select>
-        </label>
-        {purpose === "entry_exit" && (
-          <label className="flex flex-col gap-1 text-sm">Direction
-            <select className={field} value={direction} onChange={(e) => setDirection(e.target.value as typeof direction)}>
-              <option value="auto">Automatic (opposite of last)</option>
-              <option value="IN">IN</option>
-              <option value="OUT">OUT</option>
-            </select>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
+      <div className="flex flex-col gap-4">
+        <CameraStage videoRef={videoRef} ready={ready} error={cameraError} feedback={feedback} />
+        <div className="flex flex-wrap items-center gap-4">
+          <Button variant="primary" onClick={() => scan()} disabled={!ready} loading={scanBusy}>{scanBusy ? "Scanning…" : "Scan now"}</Button>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-[var(--primary)]" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-scan every 2.5 s
           </label>
+        </div>
+        {note && <Notice tone="info">{note}</Notice>}
+        {cooldown && (
+          <Notice tone="info" title={cooldown.name ? `${cooldown.name}: already scanned` : "Already scanned"}>
+            Please wait {cooldownSeconds} second{cooldownSeconds === 1 ? "" : "s"}.
+            <progress className="mt-2 block h-2 w-full" max={cooldownTotal || 1} value={Math.max(0, cooldownTotal - cooldownSeconds)} aria-label="Cooldown progress" />
+          </Notice>
         )}
       </div>
 
-      <CameraView videoRef={videoRef} />
-      {cameraError && <p className="text-sm text-red-600">{cameraError}</p>}
+      <div className="flex flex-col gap-4">
+        <Card title="Scan settings">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <FormField label="Camera">
+              {(c) => (
+                <select {...c} className={inputClasses} value={cameraId} onChange={(e) => setCameraId(Number(e.target.value))}>
+                  {cameras.map((cam) => <option key={cam.camera_id} value={cam.camera_id}>{cam.hostel} · {cam.gate} · {cam.location ?? `camera ${cam.camera_id}`}</option>)}
+                </select>
+              )}
+            </FormField>
+            <FormField label="Purpose">
+              {(c) => (
+                <select {...c} className={inputClasses} value={purpose} onChange={(e) => setPurpose(e.target.value as typeof purpose)}>
+                  <option value="entry_exit">Gate in/out</option>
+                  <option value="attendance">Roll call</option>
+                </select>
+              )}
+            </FormField>
+            {purpose === "entry_exit" && (
+              <FormField label="Direction">
+                {(c) => (
+                  <select {...c} className={inputClasses} value={direction} onChange={(e) => setDirection(e.target.value as typeof direction)}>
+                    <option value="auto">Automatic (opposite of last)</option>
+                    <option value="IN">IN</option>
+                    <option value="OUT">OUT</option>
+                  </select>
+                )}
+              </FormField>
+            )}
+          </div>
+        </Card>
 
-      <div className="flex items-center gap-4">
-        <button onClick={() => scan()} disabled={!ready} className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black">Scan now</button>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-scan every 2.5 s
-        </label>
-      </div>
-      {note && <p className="text-sm text-zinc-600 dark:text-zinc-400">{note}</p>}
-      {cooldown && (
-        <p role="status" className="max-w-md rounded-lg border border-sky-300 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100">
-          {cooldown.name ? <strong>{cooldown.name}: </strong> : null}
-          Already scanned. Please wait {cooldownSeconds} second{cooldownSeconds === 1 ? "" : "s"}.
-        </p>
-      )}
-
-      {last && <ResultCard entry={last} />}
-
-      {history.length > 1 && (
-        <div>
-          <h2 className="mb-1 text-sm font-semibold">Recent scans</h2>
-          <ul className="text-sm text-zinc-600 dark:text-zinc-400">
-            {history.slice(1).map((h, i) => <li key={i}>{h.at} · {describe(h)}</li>)}
-          </ul>
+        <div aria-live="polite" aria-atomic="true">
+          {last ? <ResultCard entry={last} /> : <Card><p className="text-sm text-muted">The result of the last scan appears here.</p></Card>}
         </div>
-      )}
+
+        {history.length > 1 && (
+          <Card title="Recent scans">
+            <ul className="flex flex-col gap-1 text-sm text-muted">
+              {history.slice(1).map((h, i) => <li key={i}>{h.at} · {describe(h)}</li>)}
+            </ul>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
@@ -166,24 +189,31 @@ function describe(e: ScanEntry): string {
   return `${who}: ${b.outcome}`;
 }
 
+// The result of one scan: colour, icon AND words, so it never relies on colour alone.
 function ResultCard({ entry }: { entry: ScanEntry }) {
   const b = entry.body;
   const err = typeof b.error === "object" ? b.error : null;
-  const tone = err || entry.status >= 400 ? "border-red-500" : b.outcome === "matched" ? "border-green-600" : b.outcome === "low_confidence" ? "border-amber-500" : "border-zinc-400";
+  const failed = !!err || entry.status >= 400;
+  const tone = failed ? "danger" : b.outcome === "matched" ? "success" : b.outcome === "low_confidence" ? "warning" : "neutral";
+  const BORDER = { danger: "border-danger", success: "border-success", warning: "border-warning", neutral: "border-border" }[tone];
+  const Icon = tone === "success" ? CheckIcon : tone === "danger" ? CrossIcon : tone === "warning" ? AlertIcon : InfoIcon;
+  const headline = failed ? "Not recorded" : b.outcome === "matched" ? "Recognised" : b.outcome === "low_confidence" ? "Needs the warden's review" : "Not recognised";
   return (
-    <div className={`max-w-md rounded-lg border-2 p-4 ${tone}`} role="status">
-      <p className="text-lg font-semibold">{b.student ? `${b.student.name} (${b.student.roll_no})` : b.outcome === "no_match" ? "Not recognised" : "Error"}</p>
-      <p className="text-sm">
-        {b.outcome ?? "–"}{typeof b.similarity === "number" ? ` · similarity ${b.similarity.toFixed(3)}` : ""}
+    <div className={`rounded-lg border-2 ${BORDER} bg-surface p-4`}>
+      <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><Icon className="h-4 w-4" />{headline}</p>
+      <p className="mt-1 text-xl font-semibold">{b.student ? `${b.student.name} (${b.student.roll_no})` : b.outcome === "no_match" ? "Unknown person" : "–"}</p>
+      <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+        {b.outcome && <StatusPill status={b.outcome === "matched" ? "matched" : b.outcome === "low_confidence" ? "review" : "no_match"} />}
+        {typeof b.similarity === "number" && <span className="text-muted">similarity {b.similarity.toFixed(3)}</span>}
       </p>
       {b.result?.kind === "entry_exit" && (
-        <p className="mt-1 text-sm">Recorded <strong>{b.result.direction}</strong>{b.result.violation_type && <span className="ml-2 rounded bg-red-600 px-2 py-0.5 text-white">Violation: {b.result.violation_type}</span>}</p>
+        <p className="mt-2 text-sm">Recorded <strong>{b.result.direction}</strong>{b.result.violation_type && <span className="ml-2 inline-flex items-center gap-1 rounded bg-danger-bg px-2 py-0.5 font-medium text-danger-text"><AlertIcon className="h-3.5 w-3.5" />Violation: {b.result.violation_type}</span>}</p>
       )}
-      {b.result?.kind === "attendance" && <p className="mt-1 text-sm">Roll call: <strong>{b.result.status}</strong></p>}
-      {b.outcome === "low_confidence" && <p className="mt-1 text-sm">Sent to the warden for review.</p>}
-      {err && <p className="mt-1 text-sm text-red-600">{err.message}</p>}
-      {typeof b.error === "string" && <p className="mt-1 text-sm text-red-600">{b.error}</p>}
-      <p className="mt-1 text-xs text-zinc-500">{entry.at} IST{b.event_id ? ` · event #${b.event_id}` : ""}</p>
+      {b.result?.kind === "attendance" && <p className="mt-2 text-sm">Roll call: <strong>{b.result.status}</strong></p>}
+      {b.outcome === "low_confidence" && <p className="mt-2 text-sm">Sent to the warden for review.</p>}
+      {err && <p className="mt-2 text-sm font-medium text-danger">{err.message}</p>}
+      {typeof b.error === "string" && <p className="mt-2 text-sm font-medium text-danger">{b.error}</p>}
+      <p className="mt-2 text-xs text-muted">{entry.at} IST{b.event_id ? ` · event #${b.event_id}` : ""}</p>
     </div>
   );
 }

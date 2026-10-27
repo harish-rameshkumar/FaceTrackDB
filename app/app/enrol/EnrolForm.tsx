@@ -1,6 +1,11 @@
 "use client";
 import { useState } from "react";
-import { CameraView, useCamera } from "@/components/CameraView";
+import { CameraStage } from "@/components/camera/CameraStage";
+import { useLiveFeedback } from "@/components/camera/useLiveFeedback";
+import { useCamera } from "@/components/useCamera";
+import { Button } from "@/components/ui/Button";
+import { FormField, inputClasses } from "@/components/ui/FormField";
+import { Notice } from "@/components/ui/Notice";
 import { captureFrame, sleep } from "@/lib/capture";
 
 interface Student { student_id: number; roll_no: string; name: string; hostel: string; profiles: number }
@@ -26,6 +31,7 @@ export function EnrolForm({ students, fixedStudentId, replace = false }: { stude
   const [countdown, setCountdown] = useState(0);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [failedFrames, setFailedFrames] = useState<FrameReport[]>([]);
+  const feedback = useLiveFeedback(videoRef, ready, !busy);
 
   async function enrol() {
     if (studentId === "" || !videoRef.current) return;
@@ -68,56 +74,54 @@ export function EnrolForm({ students, fixedStudentId, replace = false }: { stude
 
   return (
     <div className="flex flex-col gap-4">
-      <label className="flex max-w-md flex-col gap-1 text-sm">
-        Student
-        <select
-          className="rounded border border-zinc-300 bg-transparent p-2 dark:border-zinc-700"
-          value={studentId}
-          onChange={(e) => setStudentId(e.target.value === "" ? "" : Number(e.target.value))}
-          disabled={busy || fixedStudentId !== undefined}
-        >
-          <option value="">Choose a student…</option>
-          {students.map((s) => (
-            <option key={s.student_id} value={s.student_id}>
-              {s.roll_no} · {s.name} · {s.hostel} ({s.profiles} samples)
-            </option>
-          ))}
-        </select>
-      </label>
+      {fixedStudentId === undefined && (
+        <div className="max-w-md">
+          <FormField label="Student">
+            {(c) => (
+              <select {...c} className={inputClasses} value={studentId} onChange={(e) => setStudentId(e.target.value === "" ? "" : Number(e.target.value))} disabled={busy}>
+                <option value="">Choose a student…</option>
+                {students.map((s) => (
+                  <option key={s.student_id} value={s.student_id}>
+                    {s.roll_no} · {s.name} · {s.hostel} ({s.profiles} samples)
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+        </div>
+      )}
 
-      <div className="relative max-w-md">
-        <CameraView videoRef={videoRef} />
-        {busy && step < PROMPTS.length && (
-          <p className="absolute inset-x-0 bottom-0 rounded-b-lg bg-black/70 p-2 text-center text-sm text-white" role="status">
-            {PROMPTS[step]}{countdown > 0 ? ` (${countdown})` : ""}
-          </p>
+      <CameraStage
+        videoRef={videoRef}
+        ready={ready}
+        error={cameraError}
+        feedback={feedback}
+        overlay={
+          busy && step < PROMPTS.length ? (
+            <p className="absolute inset-x-3 top-3 rounded-md bg-black/80 px-3 py-2 text-center text-base font-semibold text-white" role="status">
+              {PROMPTS[step]}{countdown > 0 ? ` (${countdown})` : ""}
+            </p>
+          ) : null
+        }
+      />
+
+      <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="primary" onClick={enrol} disabled={!ready || studentId === ""} loading={busy}>
+            {busy ? "Capturing…" : `Capture ${PROMPTS.length} frames and ${replace ? "re-enrol" : "enrol"}`}
+          </Button>
+          {busy && <progress value={step} max={PROMPTS.length} className="h-2 min-w-24 flex-1" aria-label="Capture progress" />}
+        </div>
+        {busy && <p className="text-sm text-muted">Captured {step} of {PROMPTS.length}. Follow the prompt on the video.</p>}
+        {message && <Notice tone={message.kind === "ok" ? "success" : "danger"}>{message.text}</Notice>}
+        {failedFrames.length > 0 && (
+          <ul className="list-disc pl-5 text-sm text-danger">
+            {failedFrames.map((f) => (
+              <li key={f.index}>Frame {f.index + 1} ({PROMPTS[f.index]}): {f.message}</li>
+            ))}
+          </ul>
         )}
       </div>
-      {cameraError && <p className="text-sm text-red-600">{cameraError}</p>}
-
-      <div className="flex max-w-md items-center gap-3">
-        <button
-          onClick={enrol}
-          disabled={!ready || busy || studentId === ""}
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black"
-        >
-          {busy ? "Capturing…" : `Capture ${PROMPTS.length} frames and ${replace ? "re-enrol" : "enrol"}`}
-        </button>
-        {busy && <progress value={step} max={PROMPTS.length} className="h-2 flex-1" aria-label="Capture progress" />}
-      </div>
-      {busy && <p className="text-sm text-zinc-600 dark:text-zinc-400">Captured {step} of {PROMPTS.length}. Follow the prompt on the video.</p>}
-      {message && (
-        <p className={`text-sm ${message.kind === "ok" ? "text-green-700 dark:text-green-400" : "text-red-600"}`} role="status">
-          {message.text}
-        </p>
-      )}
-      {failedFrames.length > 0 && (
-        <ul className="list-disc pl-5 text-sm text-red-600">
-          {failedFrames.map((f) => (
-            <li key={f.index}>Frame {f.index + 1} ({PROMPTS[f.index]}): {f.message}</li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

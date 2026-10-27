@@ -1,22 +1,22 @@
 import { Suspense } from "react";
-import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
+import { PageShell } from "@/components/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Spinner } from "@/components/ui/Spinner";
 import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { EnrolForm } from "./EnrolForm";
 
+export const metadata = { title: "Enrol faces | FaceTrackDB" };
+
 export default function EnrolPage() {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto w-full max-w-3xl p-8">
-        <h1 className="text-2xl font-semibold">Face enrolment</h1>
-        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Admin only. Captures five guided frames, checks their quality and stores each face as a 512-number embedding. No photos are kept.</p>
-        <Suspense fallback={<p className="text-sm">Loading…</p>}>
-          <EnrolContent />
-        </Suspense>
-      </main>
-    </>
+    <PageShell>
+      <PageHeader title="Face enrolment" description="Admin only. Captures five guided frames, checks their quality and stores each face as a 512-number embedding. No photos are kept." />
+      <Suspense fallback={<Spinner label="Loading" />}>
+        <EnrolContent />
+      </Suspense>
+    </PageShell>
   );
 }
 
