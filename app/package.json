@@ -12,7 +12,9 @@
     "seed:faces": "tsx --env-file=.env.local scripts/seed-face-vectors.ts",
     "test:match": "tsx --env-file=.env.local scripts/test-matching.ts",
     "faces:eval": "tsx --env-file=.env.local scripts/faces-eval.ts",
-    "test:faces": "tsx --env-file=.env.local scripts/test-faces-e2e.ts"
+    "test:faces": "tsx --env-file=.env.local scripts/test-faces-e2e.ts",
+    "demo:clear": "tsx --env-file=.env.local scripts/demo-clear.ts",
+    "test:register": "tsx --env-file=.env.local scripts/test-registration.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.19.0",
