@@ -19,10 +19,13 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   ],
   warden: [
     { href: "/warden/review", label: "Review scans" },
+    { href: "/warden/sessions", label: "Roll calls" },
     { href: "/violations", label: "Violations" },
   ],
   security: [{ href: "/gate", label: "Gate" }],
   admin: [
+    { href: "/admin/students", label: "Students" },
+    { href: "/warden/sessions", label: "Roll calls" },
     { href: "/enrol", label: "Enrol faces" },
     { href: "/violations", label: "Violations" },
   ],
@@ -40,7 +43,7 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-300 px-6 py-3">
+    <header className="print:hidden flex flex-wrap items-center justify-between gap-3 border-b border-gray-300 px-6 py-3">
       <nav className="flex flex-wrap items-center gap-4 text-sm">
         <Link href="/" className="font-semibold">
           FaceTrackDB
@@ -58,6 +61,9 @@ export default function AppHeader() {
             <span>
               {user.name ?? user.email} ({user.role})
             </span>
+            <Link href="/account" className="underline">
+              Account
+            </Link>
             <button type="button" onClick={signOut} className="underline">
               Sign out
             </button>
