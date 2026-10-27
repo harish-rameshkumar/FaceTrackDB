@@ -51,7 +51,8 @@ Needs Docker, Node 20+ and (for the camera pages) a webcam and a browser on `loc
 | `POST /api/admin/students`, `DELETE /api/admin/students/[id]` | admin | register / delete (delete only when the student has no attendance, gate, violation, leave or scan history) |
 | `/warden/sessions`, `GET/POST /api/sessions`, `GET/POST /api/sessions/[id]/close` | warden, admin | create roll calls (overlaps and past times refused), close one after it ends (a dialog shows how many students will be marked absent) |
 | `/student/leave`, `/parent/leave`, `/violations` | student, parent, warden/admin (violations) | leave requests and decisions, violations list (Person A) |
-| `/warden` | warden, admin | dashboard: students inside/outside, on leave, open violations, scans waiting for review, presence and attendance tables with filters, monthly attendance per hostel |
+| `/warden` | warden, admin | dashboard: presence and attendance tables with filters, open violations, monthly attendance per hostel (the summary cards were removed; scans waiting for review are on `/warden/review`) |
+| `/reports`, `/reports/present` | warden, admin | 11 SQL-driven reports with charts, filters (date range, hostel), a **presentation mode** (full-screen slides, arrow keys) and print/PDF export; each slide has the SQL concept it uses and a "Show query" panel |
 | `/warden/search` | warden, admin | full-text search over violation details and leave reasons, ranked with highlighted matches |
 | `/warden/review` | warden, admin | confirm or reject low-confidence scans |
 | `/enrol` | admin | guided capture of 5 webcam frames, quality check, duplicate-face check, store 5 face embeddings |
@@ -99,6 +100,8 @@ A student's score is the mean of their best two sample similarities. At the gate
 ### Tests
 
 Registration, deletion, roll calls and password change (HTTP, against a scratch database and a running server; 31 checks): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:register`. The SQL functions: `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_register_tests.sql` (26 checks, rolls back).
+
+Reports: SQL fixture test `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_reports_tests.sql` (16 checks with known data, rolls back) and page tests `BASE_URL=http://localhost:3000 npm run test:reports` (access, bad filters, empty range, no raw errors; set `EXPECT_HISTORY_NOTE=1` or `0`).
 
 The matching tests write fake enrolments, so they only run against a scratch database and a `_test` Qdrant collection (they refuse anything else). Details and real output: [docs/test-results.md](docs/test-results.md).
 

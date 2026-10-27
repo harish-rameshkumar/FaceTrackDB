@@ -30,6 +30,7 @@ run() {  # run <file> [extra psql flags]
 run db/b_queries.sql
 run db/b_search.sql
 run db/b_register.sql
+run db/b_reports.sql
 if [ "${1:-}" = "--demo" ]; then
   run db/b_explain_demo.sql
 fi
