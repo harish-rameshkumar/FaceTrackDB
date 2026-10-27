@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Button } from "./Button";
 import { Notice } from "./Notice";
 
@@ -13,6 +13,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel = "Confirm",
   tone?: "primary" | "danger"; busy?: boolean; error?: string | null; onConfirm: () => void; onCancel: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const d = ref.current;
@@ -21,7 +22,6 @@ export function ConfirmDialog({ open, title, children, confirmLabel = "Confirm",
     if (!open && d.open) d.close();
   }, [open]);
 
-  const titleId = "confirm-title-" + title.replace(/\W+/g, "-").toLowerCase();
   return (
     <dialog
       ref={ref}
