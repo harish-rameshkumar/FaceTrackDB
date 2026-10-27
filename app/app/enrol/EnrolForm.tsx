@@ -1,55 +1,67 @@
 "use client";
 import { useState } from "react";
 import { CameraView, useCamera } from "@/components/CameraView";
-import { describeFace, loadFaceApi } from "@/lib/face-client";
+import { captureFrame, sleep } from "@/lib/capture";
 
 interface Student { student_id: number; roll_no: string; name: string; hostel: string; profiles: number }
 
-const FRAMES = 4;
+// Five frames over several seconds, each with an on-screen prompt so the samples
+// cover slightly different head poses.
+const PROMPTS = [
+  "Look straight at the camera",
+  "Turn your head slightly to the left",
+  "Turn your head slightly to the right",
+  "Look straight, chin a little up",
+  "Look straight and relax",
+];
+const SECONDS_PER_PROMPT = 2;
+
+interface FrameReport { index: number; ok: boolean; message?: string }
 
 export function EnrolForm({ students }: { students: Student[] }) {
   const { videoRef, ready, error: cameraError } = useCamera();
   const [studentId, setStudentId] = useState<number | "">("");
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [step, setStep] = useState(0); // number of frames captured so far
+  const [countdown, setCountdown] = useState(0);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [failedFrames, setFailedFrames] = useState<FrameReport[]>([]);
 
   async function enrol() {
     if (studentId === "" || !videoRef.current) return;
     setBusy(true);
     setMessage(null);
-    setProgress(0);
+    setFailedFrames([]);
+    setStep(0);
     try {
-      const faceapi = await loadFaceApi();
-      const descriptors: number[][] = [];
-      let attempts = 0;
-      while (descriptors.length < FRAMES && attempts < FRAMES * 6) {
-        attempts++;
-        const d = await describeFace(faceapi, videoRef.current);
-        if (d) {
-          descriptors.push(d);
-          setProgress(descriptors.length);
-          await new Promise((r) => setTimeout(r, 700)); // let the person shift slightly between frames
-        } else {
-          await new Promise((r) => setTimeout(r, 300));
+      const frames: Blob[] = [];
+      for (let i = 0; i < PROMPTS.length; i++) {
+        for (let s = SECONDS_PER_PROMPT; s > 0; s--) {
+          setCountdown(s);
+          await sleep(1000);
         }
+        frames.push(await captureFrame(videoRef.current));
+        setStep(i + 1);
       }
-      if (descriptors.length < 3) {
-        setMessage({ kind: "error", text: "Could not see a face clearly. Face the camera in good light and try again." });
-        return;
-      }
-      const res = await fetch("/api/faces/enrol", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ student_id: studentId, descriptors }),
-      });
+      setCountdown(0);
+      const form = new FormData();
+      form.append("student_id", String(studentId));
+      frames.forEach((f, i) => form.append("frames", f, `frame${i}.jpg`));
+      const res = await fetch("/api/faces/enrol", { method: "POST", body: form });
       const json = await res.json();
-      if (!res.ok) setMessage({ kind: "error", text: json.error ?? "Enrolment failed" });
-      else setMessage({ kind: "ok", text: `Enrolled ${json.profiles.length} face samples.` });
+      if (res.status === 422 && Array.isArray(json.frames)) {
+        setFailedFrames((json.frames as FrameReport[]).filter((f) => !f.ok));
+        setMessage({ kind: "error", text: "Some frames were not usable, so nothing was saved. Fix the points below and try again." });
+      } else if (!res.ok) {
+        setMessage({ kind: "error", text: json.error ?? "Enrolment failed" });
+      } else {
+        setMessage({ kind: "ok", text: `Enrolled ${json.profiles.length} face samples.` });
+      }
     } catch {
-      setMessage({ kind: "error", text: "Face model failed to load or run. Check that /models is reachable." });
+      setMessage({ kind: "error", text: "Enrolment failed. Check the connection and try again." });
     } finally {
       setBusy(false);
+      setCountdown(0);
     }
   }
 
@@ -72,7 +84,14 @@ export function EnrolForm({ students }: { students: Student[] }) {
         </select>
       </label>
 
-      <CameraView videoRef={videoRef} />
+      <div className="relative max-w-md">
+        <CameraView videoRef={videoRef} />
+        {busy && step < PROMPTS.length && (
+          <p className="absolute inset-x-0 bottom-0 rounded-b-lg bg-black/70 p-2 text-center text-sm text-white" role="status">
+            {PROMPTS[step]}{countdown > 0 ? ` (${countdown})` : ""}
+          </p>
+        )}
+      </div>
       {cameraError && <p className="text-sm text-red-600">{cameraError}</p>}
 
       <div className="flex max-w-md items-center gap-3">
@@ -81,17 +100,22 @@ export function EnrolForm({ students }: { students: Student[] }) {
           disabled={!ready || busy || studentId === ""}
           className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black"
         >
-          {busy ? "Capturing…" : `Capture ${FRAMES} frames and enrol`}
+          {busy ? "Capturing…" : `Capture ${PROMPTS.length} frames and enrol`}
         </button>
-        {busy && (
-          <progress value={progress} max={FRAMES} className="h-2 flex-1" aria-label="Capture progress" />
-        )}
+        {busy && <progress value={step} max={PROMPTS.length} className="h-2 flex-1" aria-label="Capture progress" />}
       </div>
-      {busy && <p className="text-sm text-zinc-600 dark:text-zinc-400">Captured {progress} of {FRAMES}. Look at the camera and move your head slightly.</p>}
+      {busy && <p className="text-sm text-zinc-600 dark:text-zinc-400">Captured {step} of {PROMPTS.length}. Follow the prompt on the video.</p>}
       {message && (
         <p className={`text-sm ${message.kind === "ok" ? "text-green-700 dark:text-green-400" : "text-red-600"}`} role="status">
           {message.text}
         </p>
+      )}
+      {failedFrames.length > 0 && (
+        <ul className="list-disc pl-5 text-sm text-red-600">
+          {failedFrames.map((f) => (
+            <li key={f.index}>Frame {f.index + 1} ({PROMPTS[f.index]}): {f.message}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
