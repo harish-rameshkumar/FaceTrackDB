@@ -1,46 +1,27 @@
-Hi Harshit, here is where my side stands and what I need from you. Everything is on branch `b/vector-and-queries`; I did not edit any of your files.
+# Status of the work handed to Harshit
 
-**What I built**
-- Qdrant collection `face_embeddings` (512-d ArcFace embeddings from the InsightFace `embedder` service, Cosine distance; since Stage 1 the browser only sends JPEG frames, see `docs/vector-design.md`), enrolment API (`/api/faces/enrol`, delete), matching API (`/api/faces/match`) that writes `face_events` and calls `mark_attendance` / `record_entry_exit` in one transaction, review API for low-confidence events.
-- Match rules: a student's score is the mean of their best two sample similarities; `MATCH_MIN_SIMILARITY` (0.50) and above is an automatic match, `REVIEW_MIN_SIMILARITY` (0.35) up to that goes to the warden as `low_confidence`, below is `no_match`; `MIN_MARGIN` (0.08) over the best other student, and at least 2 of 3 frames must agree. Starting guesses, not yet calibrated.
-- The earlier real-face numbers (128-d face-api) no longer apply; see `docs/test-results.md`.
-- Pages: `/enrol`, `/gate`, `/warden/review`, a landing page.
-- SQL in new files only: `db/b_queries.sql` (4 views, CTEs, window functions), `db/b_search.sql` (full-text search), `db/b_explain_demo.sql`, `db/load_b.sh`.
-- `app/lib/db.ts` (one shared pg pool, Asia/Kolkata session timezone, TIMESTAMP/DATE returned as strings), `.mailmap`, localhost-only ports, Qdrant API key.
+This file used to be a list of requests from Person B (Harish) to Person A (Harshit). Harshit's remaining items were finished by Harish instead, once the rule "do not edit Harshit's files" was lifted. Each change is a small commit on `b/hardening-and-docs` (or an earlier stage branch) so it can be reviewed. Harshit still owns the original design, schema, triggers, procedures, login and leave pages; the entries below say what was added on top.
 
-**What I need from you**
-1. ~~Real auth replacing `app/lib/auth-stub.ts`.~~ **Done**: real JWT login is in `app/lib/auth.ts` and `app/lib/session.ts`, with the same exports, and my routes and pages use it unchanged. `auth-stub.ts` is now only a re-export and can be deleted once nothing imports it.
-2. **Roll-call sessions.** Matching for attendance needs an `attendance_sessions` row for the hostel covering the current IST time. The seed has none for today, and nothing creates them. Please add a way to create them (warden/admin page or a job); I tested by inserting one.
-3. **Decide about a `purpose` column on `face_events`** (optional). When a warden confirms a low-confidence scan, I only update the event (`outcome='matched'`, `reviewed_by`). I do not call `mark_attendance` / `record_entry_exit` because the event does not record whether it was a roll-call or gate scan. Proposed:
-   ```sql
-   ALTER TABLE face_events ADD COLUMN purpose VARCHAR(12)
-       CHECK (purpose IN ('attendance', 'entry_exit'));
-   ```
-   Then confirm could finish the job. Not blocking.
-4. **Re-run `./db/load_b.sh` after any `schema.sql` reload.** `schema.sql` drops the tables with CASCADE, which also drops my views and the extra columns below.
+| Item (from AUDIT2 section 8) | Status | Done in | Why Harish did it |
+|---|---|---|---|
+| Roll-call sessions: create and close from the app | Done | `/warden/sessions` and `db/b_register.sql` (`create_attendance_session`, `session_close_preview`) | Blocked the attendance demo; the page uses the existing `close_attendance_session` procedure unchanged |
+| `violations.resolved_at` | Done | migration `001`, `schema.sql`, `seed.sql`, resolve route, violations page | Needed for the audit trail; older resolved rows are backfilled with `raised_at` (an approximation, stated in the migration) |
+| Raw database messages no longer returned | Done | `app/lib/db-errors.ts`, `app/lib/api-helpers.ts` | Messages contained ids (for example "Parent 3 is not a parent of student 4"); every FT code now has a fixed message |
+| Login rate limiting | Done | migration `003`, `login_retry_after` / `login_record`, login route | In the database so it survives restarts; 5 failures per email or 20 per address in 15 minutes |
+| Placeholder `JWT_SECRET` rejected | Done | `app/lib/jwt-secret.ts`, `.env.example` | The example value was 33 characters and passed the length check |
+| Token revocation | Done | migration `002`, `app/lib/auth.ts` | A deleted or signed-out user kept access for up to 8 hours |
+| Bash loader for the base SQL | Done | `db/load_all.sh`, `db/migrate.sh` | `load_all.ps1` is Windows-only (it still works); the new script refuses to wipe enrolled faces without `--yes` |
+| README overview, objectives, requirements | Done | `README.md` (top), `docs/architecture.md`, `app/README.md` | Needed for the report and for new readers |
+| Leave cancellation decision | Decided and done | `DELETE /api/leave/[id]` | A student may cancel their own **pending** request; a decided request stays final (`fn_leave_guard` is unchanged) |
+| Page-level role checks on `/violations`, `/student/leave`, `/parent/leave`, `/student/history` | Done | `app/components/RoleGate.tsx` | The pages rendered an empty shell for any role and relied on the API |
+| Cross-review of PRs | **Open** | n/a | Reviews need a second person; nothing a script can do. Please review the Stage 1 to 4 PRs and leave comments |
 
-**What I assumed about your work**
-- Procedure signatures exactly as in `db/procedures.sql`: `CALL mark_attendance(student, session, event, NULL)`, `CALL record_entry_exit(student, gate, event, 'IN'|'OUT', NULL, NULL)`. Error codes FT001-FT040 as in `phase3-logic.md`; I map them to fixed JSON messages.
-- A `matched` event is the only kind that touches attendance or the gate log; `low_confidence` and `no_match` only create a `face_events` row.
-- `face_events.confidence` is the cosine similarity clamped to 0..1, so it stays in your 0..1 CHECK.
+## Still open (not code)
+- PR cross-review (above).
+- A decision from the institution on how long face data and old history are kept (see `docs/privacy-and-biometric-policy.md`).
+- Screenshots for the final report.
 
-**Changes my SQL makes to your tables (in `db/b_search.sql`)**
-```sql
-ALTER TABLE violations ADD COLUMN IF NOT EXISTS details_tsv tsvector
-    GENERATED ALWAYS AS (to_tsvector('english', coalesce(details, ''))) STORED;
-CREATE INDEX IF NOT EXISTS idx_violations_details_fts ON violations USING gin (details_tsv);
-ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS reason_tsv tsvector
-    GENERATED ALWAYS AS (to_tsvector('english', coalesce(reason, ''))) STORED;
-CREATE INDEX IF NOT EXISTS idx_leave_reason_fts ON leave_requests USING gin (reason_tsv);
-```
-Adds columns only; existing inserts are unaffected. If you would rather own this, move it into `schema.sql`.
-
-**Things in your files that look wrong or risky**
-1. `db/load_all.ps1` is PowerShell-only and hard-codes `-U facetrack -d facetrackdb`. There is no bash loader (I added only `load_b.sh`; the README has a loop for the base files).
-2. `seed.sql` has `REPLACE_WITH_BCRYPT_HASH` for every user, so nobody can log in until real hashes exist.
-3. `leave_requests.decided_by` is a parent id by foreign key, so a warden/admin can never decide leave. Fine if intended.
-4. `fn_leave_guard` (`triggers.sql`, line 139) blocks every update on a decided leave, including an admin correction or cancellation.
-5. `record_entry_exit`: the "on leave" test uses only the date of the event, so a late return after midnight on the day after the leave ends is flagged, and one before midnight on the first leave day is not. Check this is the rule you want.
-6. `violations` has no `resolved_at` timestamp, so there is no record of when a violation was resolved.
-7. `settings.sql` sets the database timezone with `ALTER DATABASE`, which only affects new connections. The app now forces Asia/Kolkata per connection, so it is safe, but psql sessions opened before the change still show UTC.
-8. Updating `face_events.student_id` is blocked by the composite foreign keys from `attendance` / `entry_exit_log` (no `ON UPDATE`), so a warden cannot reassign an event that already produced attendance or a gate log. Review only touches unmarked low-confidence events, so this is fine today.
+## Things to know before merging
+- Schema changes are in `db/migrations/` **and** in `db/schema.sql`. On a database you want to keep, run `./db/migrate.sh`; do not reload `schema.sql` (it wipes `face_profiles` and orphans the Qdrant vectors).
+- `db/load_all.sh` is the macOS/Linux counterpart of `load_all.ps1`. The PowerShell script was not changed.
+- `dbErrorResponse` now returns `null` only for errors that are not database errors; routes that do `?? dbErrorResponse(e)` then `throw e` still work.
