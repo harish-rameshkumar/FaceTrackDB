@@ -1,9 +1,9 @@
 Hi Harshit, here is where my side stands and what I need from you. Everything is on branch `b/vector-and-queries`; I did not edit any of your files.
 
 **What I built**
-- Qdrant collection `face_embeddings` (128-d, distance Euclid; descriptors are stored and searched raw, not normalised), enrolment API (`/api/faces/enrol`, delete), matching API (`/api/faces/match`) that writes `face_events` and calls `mark_attendance` / `record_entry_exit` in one transaction, review API for low-confidence events.
-- Match rules: distance at or below `MATCH_MAX_DISTANCE` (0.45) is an automatic match; above that up to `REVIEW_MAX_DISTANCE` (0.60) goes to the warden as `low_confidence`; above 0.60 is `no_match`. Margin rule: a scan also goes to review if the nearest different student is less than 0.06 farther away than the best match.
-- Real-face tests gave a distance of 0.222 for my face, 0.252 for a friend and 0.721 (no_match) for an unenrolled face.
+- Qdrant collection `face_embeddings` (512-d ArcFace embeddings from the InsightFace `embedder` service, Cosine distance; since Stage 1 the browser only sends JPEG frames, see `docs/vector-design.md`), enrolment API (`/api/faces/enrol`, delete), matching API (`/api/faces/match`) that writes `face_events` and calls `mark_attendance` / `record_entry_exit` in one transaction, review API for low-confidence events.
+- Match rules: a student's score is the mean of their best two sample similarities; `MATCH_MIN_SIMILARITY` (0.50) and above is an automatic match, `REVIEW_MIN_SIMILARITY` (0.35) up to that goes to the warden as `low_confidence`, below is `no_match`; `MIN_MARGIN` (0.08) over the best other student, and at least 2 of 3 frames must agree. Starting guesses, not yet calibrated.
+- The earlier real-face numbers (128-d face-api) no longer apply; see `docs/test-results.md`.
 - Pages: `/enrol`, `/gate`, `/warden/review`, a landing page.
 - SQL in new files only: `db/b_queries.sql` (4 views, CTEs, window functions), `db/b_search.sql` (full-text search), `db/b_explain_demo.sql`, `db/load_b.sh`.
 - `app/lib/db.ts` (one shared pg pool, Asia/Kolkata session timezone, TIMESTAMP/DATE returned as strings), `.mailmap`, localhost-only ports, Qdrant API key.
@@ -22,7 +22,7 @@ Hi Harshit, here is where my side stands and what I need from you. Everything is
 **What I assumed about your work**
 - Procedure signatures exactly as in `db/procedures.sql`: `CALL mark_attendance(student, session, event, NULL)`, `CALL record_entry_exit(student, gate, event, 'IN'|'OUT', NULL, NULL)`. Error codes FT001-FT040 as in `phase3-logic.md`; I map them to fixed JSON messages.
 - A `matched` event is the only kind that touches attendance or the gate log; `low_confidence` and `no_match` only create a `face_events` row.
-- `face_events.confidence` is `max(0, 1 - distance)` (Euclidean distance), so it stays in your 0..1 CHECK.
+- `face_events.confidence` is the cosine similarity clamped to 0..1, so it stays in your 0..1 CHECK.
 
 **Changes my SQL makes to your tables (in `db/b_search.sql`)**
 ```sql

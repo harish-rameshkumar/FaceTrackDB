@@ -1,5 +1,7 @@
 const links = [
   { href: "/login", title: "Sign in", who: "Everyone", text: "Sign in to open the pages for your role." },
+  { href: "/admin/students", title: "Students", who: "Admin", text: "Register students and parents, enrol faces, delete students without history." },
+  { href: "/warden/sessions", title: "Roll calls", who: "Warden, admin", text: "Create roll calls and close them after they end." },
   { href: "/enrol", title: "Enrol faces", who: "Admin", text: "Capture a student's face and store it for recognition." },
   { href: "/gate", title: "Gate and roll call", who: "Security", text: "Scan faces at the gate or during the evening roll call." },
   { href: "/warden/review", title: "Review queue", who: "Warden", text: "Decide the scans the system was not sure about." },
