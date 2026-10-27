@@ -46,7 +46,10 @@ const NAV: Record<string, NavLink[]> = {
   ],
 };
 
-const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
+const matches = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
+// Exactly one link is "current": the longest href that matches, so /warden/search highlights Search, not Dashboard.
+const currentHref = (pathname: string, links: NavLink[]) =>
+  links.filter((l) => matches(pathname, l.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
 export default function AppHeader() {
   const router = useRouter();
@@ -65,11 +68,13 @@ export default function AppHeader() {
   }
 
   const links = user ? (NAV[user.role] ?? [ACCOUNT]) : [];
+  const current = currentHref(pathname, links);
+  const isActive = (href: string) => href === current;
 
   const linkClass = (href: string) =>
     cx(
       "rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap",
-      isActive(pathname, href) ? "bg-primary text-primary-fg" : "text-fg hover:bg-surface-2",
+      isActive(href) ? "bg-primary text-primary-fg" : "text-fg hover:bg-surface-2",
     );
 
   return (
@@ -89,7 +94,7 @@ export default function AppHeader() {
 
         <nav aria-label="Main" className="hidden flex-1 flex-wrap items-center gap-1 lg:flex">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className={linkClass(l.href)} aria-current={isActive(pathname, l.href) ? "page" : undefined}>
+            <Link key={l.href} href={l.href} className={linkClass(l.href)} aria-current={isActive(l.href) ? "page" : undefined}>
               {l.label}
             </Link>
           ))}
@@ -131,7 +136,7 @@ export default function AppHeader() {
           <ul className="flex flex-col gap-1">
             {links.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className={cx("block", linkClass(l.href))} aria-current={isActive(pathname, l.href) ? "page" : undefined}>
+                <Link href={l.href} className={cx("block", linkClass(l.href))} aria-current={isActive(l.href) ? "page" : undefined}>
                   {l.label}
                 </Link>
               </li>
