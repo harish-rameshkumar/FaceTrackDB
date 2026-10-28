@@ -1,6 +1,15 @@
 import { Suspense } from "react";
 import { AccessDenied } from "@/components/AccessDenied";
-import AppHeader from "@/components/AppHeader";
+import { PageShell } from "@/components/PageShell";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field } from "@/components/ui/Field";
+import { inputClasses } from "@/components/ui/styles";
+import { Notice } from "@/components/ui/Notice";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Spinner } from "@/components/ui/Spinner";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { AuthError, requireRole } from "@/lib/auth";
 import { MAX_QUERY_LENGTH, MAX_RESULTS, SCOPES, parseSearch, searchText, type Markers, type SearchHit } from "@/lib/search";
 
@@ -10,22 +19,17 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default function WardenSearchPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto w-full max-w-4xl p-6">
-        <h1 className="text-2xl font-semibold">Search</h1>
-        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Full-text search over violation details and leave reasons. Plain words, &quot;quoted phrases&quot;, <code>or</code> and <code>-exclude</code> all work.
-        </p>
-        <Suspense fallback={<p className="text-sm">Loading…</p>}>
-          <SearchContent searchParams={searchParams} />
-        </Suspense>
-      </main>
-    </>
+    <PageShell>
+      <PageHeader
+        title="Search"
+        description={<>Full-text search over violation details and leave reasons. Plain words, &quot;quoted phrases&quot;, <code>or</code> and <code>-exclude</code> all work.</>}
+      />
+      <Suspense fallback={<Spinner label="Loading" />}>
+        <SearchContent searchParams={searchParams} />
+      </Suspense>
+    </PageShell>
   );
 }
-
-const field = "rounded border border-zinc-300 bg-transparent p-2 text-sm dark:border-zinc-700";
 
 async function SearchContent({ searchParams }: { searchParams: SearchParams }) {
   try {
@@ -51,39 +55,39 @@ async function SearchContent({ searchParams }: { searchParams: SearchParams }) {
   return (
     <div className="flex flex-col gap-6">
       <form method="get" className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-64 flex-1 flex-col gap-1 text-sm">Search for
-          <input name="q" defaultValue={q} maxLength={MAX_QUERY_LENGTH} placeholder="e.g. curfew, medical, &quot;roll call&quot;" className={field} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">Look in
-          <select name="scope" defaultValue={scope} className={field}>
-            {Object.entries(SCOPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-          </select>
-        </label>
-        <button type="submit" className="rounded bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">Search</button>
+        <Field label="Search for" className="min-w-64 flex-1">
+          <input name="q" defaultValue={q} maxLength={MAX_QUERY_LENGTH} placeholder="e.g. curfew, medical, &quot;roll call&quot;" className={inputClasses} />
+        </Field>
+        <Field label="Look in">
+              <select name="scope" defaultValue={scope} className={inputClasses}>
+              {Object.entries(SCOPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+            </Field>
+        <Button type="submit" variant="primary">Search</Button>
       </form>
 
-      {tooLong && <p className="text-sm text-amber-700 dark:text-amber-400">The search was longer than {MAX_QUERY_LENGTH} characters and was shortened.</p>}
-
-      {!q && <p className="rounded border border-dashed border-zinc-400 p-4 text-sm">Type a word or phrase above to search, for example <em>curfew</em> or <em>medical</em>.</p>}
-      {failed && <p role="alert" className="text-sm text-red-600">The search could not be completed. Please try again.</p>}
-      {q && !failed && hits.length === 0 && <p className="rounded border border-dashed border-zinc-400 p-4 text-sm">No results for this search.</p>}
+      {tooLong && <Notice tone="warning">The search was longer than {MAX_QUERY_LENGTH} characters and was shortened.</Notice>}
+      {!q && <EmptyState title="Type a word or phrase to search">For example <em>curfew</em> or <em>medical</em>.</EmptyState>}
+      {failed && <Notice tone="danger">The search could not be completed. Please try again.</Notice>}
+      {q && !failed && hits.length === 0 && <EmptyState title="No results for this search">Try fewer or different words.</EmptyState>}
 
       {hits.length > 0 && (
         <>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted" role="status">
             {hits.length === MAX_RESULTS ? `Showing the best ${MAX_RESULTS} results; refine the search to narrow them down.` : `${hits.length} ${hits.length === 1 ? "result" : "results"}.`} Best match first.
           </p>
           <ul className="flex flex-col gap-3">
             {hits.map((h) => (
-              <li key={`${h.source}-${h.id}`} className="rounded-lg border border-zinc-300 p-4 dark:border-zinc-700">
+              <Card as="li" key={`${h.source}-${h.id}`}>
                 <p className="text-sm">
-                  <span className="font-medium">{h.student}</span> <span className="text-zinc-500">({h.roll_no})</span> · {h.hostel}
+                  <span className="font-medium">{h.student}</span> <span className="text-muted">({h.roll_no})</span> · {h.hostel}
                 </p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-zinc-500">
-                  {h.source === "violation" ? "Violation" : "Leave request"} · {h.kind} · {h.happened} · rank {h.rank.toFixed(3)}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                  <StatusPill status={h.source} label={h.source === "violation" ? "Violation" : "Leave request"} />
+                  <span>{h.kind} · {h.happened} · rank {h.rank.toFixed(3)}</span>
                 </p>
                 <p className="mt-2 text-sm"><Highlighted text={h.snippet} markers={markers} /></p>
-              </li>
+              </Card>
             ))}
           </ul>
         </>
@@ -103,7 +107,7 @@ function Highlighted({ text, markers }: { text: string; markers: Markers }) {
     const next = marked ? markers.end : markers.start;
     const at = rest.indexOf(next);
     const piece = at === -1 ? rest : rest.slice(0, at);
-    if (piece) out.push(marked ? <mark key={key++} className="rounded bg-yellow-200 px-0.5 text-black">{piece}</mark> : <span key={key++}>{piece}</span>);
+    if (piece) out.push(marked ? <mark key={key++} className="rounded bg-mark-bg px-0.5 text-mark-text">{piece}</mark> : <span key={key++}>{piece}</span>);
     if (at === -1) break;
     rest = rest.slice(at + next.length);
     marked = !marked;

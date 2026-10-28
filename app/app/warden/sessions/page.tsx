@@ -1,6 +1,8 @@
 import { Suspense } from "react";
-import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
+import { PageShell } from "@/components/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Spinner } from "@/components/ui/Spinner";
 import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { sessionsSql } from "@/lib/sessions";
@@ -10,16 +12,15 @@ export const metadata = { title: "Roll calls | FaceTrackDB" };
 
 export default function SessionsPage() {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto w-full max-w-5xl p-8">
-        <h1 className="text-2xl font-semibold">Roll calls</h1>
-        <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">Create a roll call for a hostel, and close it after it ends: everyone who did not scan is marked absent (a missed-attendance violation is raised unless they are on approved leave). Times are IST.</p>
-        <Suspense fallback={<p className="text-sm">Loading…</p>}>
-          <Content />
-        </Suspense>
-      </main>
-    </>
+    <PageShell width="wide">
+      <PageHeader
+        title="Roll calls"
+        description="Create a roll call for a hostel, and close it after it ends: everyone who did not scan is marked absent (a missed-attendance violation is raised unless they are on approved leave). Times are IST."
+      />
+      <Suspense fallback={<Spinner label="Loading roll calls" />}>
+        <Content />
+      </Suspense>
+    </PageShell>
   );
 }
 

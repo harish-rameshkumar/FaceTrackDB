@@ -1,15 +1,33 @@
 import { getPool } from "@/lib/db";
 import { requireRole, authErrorResponse } from "@/lib/auth";
-import { dbErrorResponse } from "@/lib/api-helpers";
+import { dbErrorResponse, parseId } from "@/lib/api-helpers";
 
 // GET /api/history
-// Students only, and always the logged-in student's OWN records: the student id
-// comes from the signed session cookie, never from the request, so a student
-// cannot ask for somebody else's history.
-export async function GET() {
+// A student always gets their OWN records: the student id comes from the signed session cookie,
+// never from the request, so a student cannot ask for somebody else's history.
+// A parent may add ?studentId=N for one of THEIR wards (checked in student_parent); without it
+// they get their first ward. Read-only in both cases.
+export async function GET(request: Request) {
   try {
-    const user = await requireRole(["student"]);
-    if (!user.studentId) {
+    const user = await requireRole(["student", "parent"]);
+    let studentId = user.studentId;
+    if (user.role === "parent") {
+      if (!user.parentId) {
+        return Response.json({ error: "Your account is not linked to a parent record" }, { status: 403 });
+      }
+      const wanted = new URL(request.url).searchParams.get("studentId");
+      const asked = wanted === null ? null : parseId(wanted);
+      if (wanted !== null && asked === null) return Response.json({ error: "Invalid studentId" }, { status: 400 });
+      const { rows: wards } = await getPool().query<{ student_id: number }>(
+        "SELECT student_id FROM student_parent WHERE parent_id = $1 AND ($2::int IS NULL OR student_id = $2) ORDER BY student_id LIMIT 1",
+        [user.parentId, asked],
+      );
+      if (wards.length === 0) {
+        return Response.json({ error: asked === null ? "No students are linked to your account" : "That student is not your ward" }, { status: 403 });
+      }
+      studentId = wards[0].student_id;
+    }
+    if (!studentId) {
       return Response.json({ error: "Your account is not linked to a student record" }, { status: 403 });
     }
 
@@ -22,7 +40,7 @@ export async function GET() {
          WHERE a.student_id = $1
          ORDER BY sess.session_date DESC, sess.start_time DESC
          LIMIT 60`,
-        [user.studentId]
+        [studentId]
       ),
       pool.query(
         `SELECT l.log_id AS id, l.direction, l.event_time, g.name AS gate_name
@@ -31,7 +49,7 @@ export async function GET() {
          WHERE l.student_id = $1
          ORDER BY l.event_time DESC, l.log_id DESC
          LIMIT 60`,
-        [user.studentId]
+        [studentId]
       ),
       pool.query(
         `SELECT count(*) FILTER (WHERE status = 'present')        AS present,
@@ -40,7 +58,7 @@ export async function GET() {
                 count(*)                                          AS total
          FROM attendance
          WHERE student_id = $1`,
-        [user.studentId]
+        [studentId]
       ),
     ]);
 

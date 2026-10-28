@@ -1,19 +1,17 @@
-import AppHeader from "@/components/AppHeader";
+import { PageShell } from "@/components/PageShell";
 import { RoleGate } from "@/components/RoleGate";
+import { PageHeader } from "@/components/ui/PageHeader";
 import ParentLeave from "./ParentLeave";
 
 export const metadata = { title: "Leave requests | FaceTrackDB" };
 
 export default function ParentLeavePage() {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-3xl p-6">
-        <h1 className="mb-6 text-2xl font-semibold">Leave requests</h1>
-        <RoleGate roles={["parent"]}>
-          <ParentLeave />
-        </RoleGate>
-      </main>
-    </>
+    <PageShell width="narrow">
+      <PageHeader title="Leave requests" description="Approve or reject your ward's requests. A decision cannot be changed afterwards." />
+      <RoleGate roles={["parent"]}>
+        <ParentLeave />
+      </RoleGate>
+    </PageShell>
   );
 }

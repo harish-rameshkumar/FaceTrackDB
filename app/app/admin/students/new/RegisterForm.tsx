@@ -1,22 +1,15 @@
 "use client";
-import Link from "next/link";
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { DataTable } from "@/components/ui/DataTable";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
+import { Notice } from "@/components/ui/Notice";
 import { blankParent, generatePassword, isBlankParent, RELATIONS, validateRegistration, type FieldErrors, type ParentInput } from "@/lib/registration";
 
 interface Hostel { hostel_id: number; name: string }
 interface Created { student_id: number; student: { email: string; password: string }; parents: { name: string; email: string; password: string; created: boolean }[] }
-
-const field = "rounded border border-zinc-300 bg-transparent p-2 text-sm dark:border-zinc-700";
-
-function Input({ label, error, ...rest }: { label: string; error?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      {label}
-      <input className={field} aria-invalid={!!error} {...rest} />
-      {error && <span className="text-xs text-red-600" role="alert">{error}</span>}
-    </label>
-  );
-}
 
 export function RegisterForm({ hostels }: { hostels: Hostel[] }) {
   const [name, setName] = useState("");
@@ -76,62 +69,67 @@ export function RegisterForm({ hostels }: { hostels: Hostel[] }) {
   if (created) return <Credentials created={created} />;
 
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-5" noValidate>
-      <fieldset className="grid gap-3 sm:grid-cols-2">
-        <legend className="mb-2 font-semibold">Student</legend>
-        <Input label="Full name" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} maxLength={100} />
-        <Input label="SRN / roll number" value={rollNo} onChange={(e) => setRollNo(e.target.value)} error={errors.roll_no} maxLength={20} />
-        <label className="flex flex-col gap-1 text-sm">
-          Hostel
-          <select className={field} value={hostelId} onChange={(e) => setHostelId(e.target.value === "" ? "" : Number(e.target.value))} aria-invalid={!!errors.hostel_id}>
-            <option value="">Choose a hostel…</option>
-            {hostels.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
-          </select>
-          {errors.hostel_id && <span className="text-xs text-red-600" role="alert">{errors.hostel_id}</span>}
-        </label>
-        <Input label="Room number" value={roomNo} onChange={(e) => setRoomNo(e.target.value)} error={errors.room_no} maxLength={10} />
-        <Input label="Student login email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
-        <PasswordInput label="Temporary password" value={password} onChange={setPassword} error={errors.password} />
-      </fieldset>
+    <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+      <Card title="Student">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Full name" error={errors.name}>{(c) => <input {...c} className={inputClasses} value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />}</FormField>
+          <FormField label="SRN / roll number" error={errors.roll_no}>{(c) => <input {...c} className={inputClasses} value={rollNo} onChange={(e) => setRollNo(e.target.value)} maxLength={20} />}</FormField>
+          <FormField label="Hostel" error={errors.hostel_id}>
+            {(c) => (
+              <select {...c} className={inputClasses} value={hostelId} onChange={(e) => setHostelId(e.target.value === "" ? "" : Number(e.target.value))}>
+                <option value="">Choose a hostel…</option>
+                {hostels.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
+              </select>
+            )}
+          </FormField>
+          <FormField label="Room number" error={errors.room_no}>{(c) => <input {...c} className={inputClasses} value={roomNo} onChange={(e) => setRoomNo(e.target.value)} maxLength={10} />}</FormField>
+          <FormField label="Student login email" error={errors.email}>{(c) => <input {...c} type="email" className={inputClasses} value={email} onChange={(e) => setEmail(e.target.value)} />}</FormField>
+          <PasswordField label="Temporary password" value={password} onChange={setPassword} error={errors.password} />
+        </div>
+      </Card>
 
       {parents.map((p, i) => (
-        <fieldset key={i} className="grid gap-3 sm:grid-cols-2">
-          <legend className="mb-2 font-semibold">{i === 0 ? "Parent 1" : "Parent 2 (optional)"}</legend>
-          <Input label="Name" value={p.name} onChange={(e) => setParent(i, { name: e.target.value })} error={errors[`parents.${i}.name`]} maxLength={100} />
-          <label className="flex flex-col gap-1 text-sm">
-            Relation
-            <select className={field} value={p.relation} onChange={(e) => setParent(i, { relation: e.target.value })}>
-              <option value="">Choose…</option>
-              {RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-            {errors[`parents.${i}.relation`] && <span className="text-xs text-red-600" role="alert">{errors[`parents.${i}.relation`]}</span>}
-          </label>
-          <Input label="Phone" value={p.phone} onChange={(e) => setParent(i, { phone: e.target.value })} error={errors[`parents.${i}.phone`]} maxLength={15} />
-          <Input label="Login email" type="email" value={p.email} onChange={(e) => setParent(i, { email: e.target.value })} error={errors[`parents.${i}.email`]} />
-          <PasswordInput label="Temporary password" value={p.password} onChange={(v) => setParent(i, { password: v })} error={errors[`parents.${i}.password`]} />
-        </fieldset>
+        <Card key={i} title={i === 0 ? "Parent 1" : "Parent 2 (optional)"}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Name" error={errors[`parents.${i}.name`]}>{(c) => <input {...c} className={inputClasses} value={p.name} onChange={(e) => setParent(i, { name: e.target.value })} maxLength={100} />}</FormField>
+            <FormField label="Relation" error={errors[`parents.${i}.relation`]}>
+              {(c) => (
+                <select {...c} className={inputClasses} value={p.relation} onChange={(e) => setParent(i, { relation: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              )}
+            </FormField>
+            <FormField label="Phone" error={errors[`parents.${i}.phone`]}>{(c) => <input {...c} type="tel" className={inputClasses} value={p.phone} onChange={(e) => setParent(i, { phone: e.target.value })} maxLength={15} />}</FormField>
+            <FormField label="Login email" error={errors[`parents.${i}.email`]}>{(c) => <input {...c} type="email" className={inputClasses} value={p.email} onChange={(e) => setParent(i, { email: e.target.value })} />}</FormField>
+            <PasswordField label="Temporary password" value={p.password} onChange={(v) => setParent(i, { password: v })} error={errors[`parents.${i}.password`]} />
+          </div>
+        </Card>
       ))}
-      <p className="text-xs text-zinc-500">If a parent&apos;s email already belongs to a parent account, that account is linked (a parent can have several wards) and its password is left unchanged.</p>
+      <p className="text-xs text-muted">If a parent&apos;s email already belongs to a parent account, that account is linked (a parent can have several wards) and its password is left unchanged.</p>
 
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" aria-invalid={!!errors.consent} />
-        <span>The student and guardian consent to storing face data for hostel attendance. <span className="text-xs text-zinc-500">(Only face embeddings are stored, never photos: see docs/privacy-and-biometric-policy.md.)</span></span>
-      </label>
-      {errors.consent && <span className="text-xs text-red-600" role="alert">{errors.consent}</span>}
+      <Card>
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 h-4 w-4 accent-[var(--primary)]" aria-invalid={!!errors.consent} aria-describedby={errors.consent ? "consent-error" : undefined} />
+          <span>
+            The student and guardian consent to storing face data for hostel attendance.{" "}
+            <span className="text-xs text-muted">(Only face embeddings are stored, never photos: see docs/privacy-and-biometric-policy.md.)</span>
+          </span>
+        </label>
+        {errors.consent && <p id="consent-error" className="mt-2 text-xs font-medium text-danger" role="alert">{errors.consent}</p>}
+      </Card>
 
-      {formError && <p className="text-sm text-red-600" role="alert">{formError}</p>}
-      <button type="submit" disabled={busy} className="w-fit rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black">
-        {busy ? "Registering…" : "Register student"}
-      </button>
+      {formError && <Notice tone="danger">{formError}</Notice>}
+      <div><Button type="submit" variant="primary" loading={busy}>{busy ? "Registering…" : "Register student"}</Button></div>
     </form>
   );
 }
 
-function PasswordInput({ label, value, onChange, error }: { label: string; value: string; onChange: (v: string) => void; error?: string }) {
+function PasswordField({ label, value, onChange, error }: { label: string; value: string; onChange: (v: string) => void; error?: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <Input label={label} value={value} onChange={(e) => onChange(e.target.value)} error={error} autoComplete="off" spellCheck={false} />
-      <button type="button" onClick={() => onChange(generatePassword())} className="w-fit text-xs underline">Generate another</button>
+      <FormField label={label} error={error}>{(c) => <input {...c} className={`${inputClasses} font-mono`} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="off" spellCheck={false} />}</FormField>
+      <Button variant="link" onClick={() => onChange(generatePassword())} className="self-start text-xs">Generate another</Button>
     </div>
   );
 }
@@ -152,28 +150,32 @@ function Credentials({ created }: { created: Created }) {
     ...created.parents.map((p, i) => ({ key: `p${i}`, who: `Parent: ${p.name}`, email: p.email, password: p.password, note: p.created ? "" : "Existing parent account linked; its password is unchanged" })),
   ];
   return (
-    <section className="max-w-2xl" aria-labelledby="creds">
+    <section aria-labelledby="creds" className="flex flex-col gap-4">
       <h2 id="creds" className="text-xl font-semibold">Credentials created</h2>
-      <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">Shown once. These temporary passwords are not stored anywhere in readable form: copy or print them now, and ask each person to change theirs at /account.</p>
-      <table className="mt-4 w-full text-left text-sm">
-        <thead><tr className="border-b border-zinc-300"><th className="py-2">Account</th><th>Email</th><th>Temporary password</th><th className="print:hidden" /></tr></thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key} className="border-b border-zinc-200 align-top dark:border-zinc-800">
-              <td className="py-2">{r.who}</td>
-              <td className="break-all">{r.email}</td>
-              <td className="font-mono">{r.note ? <em className="font-sans text-xs">{r.note}</em> : r.password}</td>
-              <td className="space-x-2 whitespace-nowrap print:hidden">
-                <button type="button" className="underline" onClick={() => copy(`${r.key}e`, r.email)}>{copied === `${r.key}e` ? "Copied" : "Copy email"}</button>
-                {!r.note && <button type="button" className="underline" onClick={() => copy(`${r.key}p`, r.password)}>{copied === `${r.key}p` ? "Copied" : "Copy password"}</button>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-6 flex gap-3 print:hidden">
-        <button type="button" onClick={() => window.print()} className="rounded border border-zinc-400 px-4 py-2 text-sm">Print</button>
-        <Link href={`/admin/students/${created.student_id}/enrol`} className="rounded bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">Continue to face enrolment</Link>
+      <Notice tone="warning">Shown once. These temporary passwords are not stored anywhere in readable form: copy or print them now, and ask each person to change theirs at /account.</Notice>
+      <Card>
+        <DataTable
+          caption="New accounts"
+          rows={rows}
+          rowKey={(r) => r.key}
+          columns={[
+            { key: "w", header: "Account", render: (r) => r.who },
+            { key: "e", header: "Email", render: (r) => r.email, className: "break-all" },
+            { key: "p", header: "Temporary password", render: (r) => (r.note ? <em className="text-xs">{r.note}</em> : <span className="font-mono">{r.password}</span>) },
+            {
+              key: "a", header: "", className: "no-print", render: (r) => (
+                <span className="flex flex-wrap gap-3">
+                  <Button variant="link" onClick={() => copy(`${r.key}e`, r.email)}>{copied === `${r.key}e` ? "Copied" : "Copy email"}</Button>
+                  {!r.note && <Button variant="link" onClick={() => copy(`${r.key}p`, r.password)}>{copied === `${r.key}p` ? "Copied" : "Copy password"}</Button>}
+                </span>
+              ),
+            },
+          ]}
+        />
+      </Card>
+      <div className="flex flex-wrap gap-2 print:hidden">
+        <Button variant="secondary" onClick={() => window.print()}>Print</Button>
+        <Button href={`/admin/students/${created.student_id}/enrol`} variant="primary">Continue to face enrolment</Button>
       </div>
     </section>
   );

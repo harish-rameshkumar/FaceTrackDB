@@ -1,8 +1,11 @@
 "use client";
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
+import { Notice } from "@/components/ui/Notice";
 import { MIN_PASSWORD_LENGTH } from "@/lib/registration";
-
-const field = "rounded border border-zinc-300 bg-transparent p-2 text-sm dark:border-zinc-700";
 
 export function PasswordForm() {
   const [current, setCurrent] = useState("");
@@ -32,12 +35,14 @@ export function PasswordForm() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm">Current password<input type="password" className={field} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" /></label>
-      <label className="flex flex-col gap-1 text-sm">New password<input type="password" className={field} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" /></label>
-      <label className="flex flex-col gap-1 text-sm">New password again<input type="password" className={field} value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" /></label>
-      {msg && <p className={`text-sm ${msg.ok ? "text-green-700 dark:text-green-400" : "text-red-600"}`} role="status">{msg.text}</p>}
-      <button disabled={busy} className="w-fit rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-40 dark:bg-white dark:text-black">Change password</button>
-    </form>
+    <Card>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <FormField label="Current password">{(c) => <input {...c} type="password" className={inputClasses} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />}</FormField>
+        <FormField label="New password" hint={`At least ${MIN_PASSWORD_LENGTH} characters`}>{(c) => <input {...c} type="password" className={inputClasses} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />}</FormField>
+        <FormField label="New password again">{(c) => <input {...c} type="password" className={inputClasses} value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" />}</FormField>
+        {msg && <Notice tone={msg.ok ? "success" : "danger"}>{msg.text}</Notice>}
+        <div><Button type="submit" variant="primary" loading={busy}>Change password</Button></div>
+      </form>
+    </Card>
   );
 }

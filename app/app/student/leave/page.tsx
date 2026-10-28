@@ -1,19 +1,17 @@
-import AppHeader from "@/components/AppHeader";
+import { PageShell } from "@/components/PageShell";
 import { RoleGate } from "@/components/RoleGate";
+import { PageHeader } from "@/components/ui/PageHeader";
 import StudentLeave from "./StudentLeave";
 
 export const metadata = { title: "My leave | FaceTrackDB" };
 
 export default function StudentLeavePage() {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-3xl p-6">
-        <h1 className="mb-6 text-2xl font-semibold">My leave</h1>
-        <RoleGate roles={["student"]}>
-          <StudentLeave />
-        </RoleGate>
-      </main>
-    </>
+    <PageShell width="narrow">
+      <PageHeader title="My leave" description="Ask for leave and follow the decision." />
+      <RoleGate roles={["student"]}>
+        <StudentLeave />
+      </RoleGate>
+    </PageShell>
   );
 }

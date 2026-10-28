@@ -3,6 +3,16 @@
 import { useState } from "react";
 import StateMessage from "@/components/StateMessage";
 import { postJson, useFetch } from "@/components/useApi";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DataTable } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { FormField } from "@/components/ui/FormField";
+import { inputClasses } from "@/components/ui/styles";
+import { Notice } from "@/components/ui/Notice";
+import { Spinner } from "@/components/ui/Spinner";
+import { StatusPill } from "@/components/ui/StatusPill";
 
 type LeaveRequest = {
   id: number;
@@ -13,12 +23,6 @@ type LeaveRequest = {
   decidedByName: string | null;
 };
 
-const BADGE: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-900",
-  approved: "bg-green-100 text-green-900",
-  rejected: "bg-red-100 text-red-900",
-};
-
 export default function StudentLeave() {
   const { data, error, status, loading, reload } = useFetch<{ requests: LeaveRequest[] }>("/api/leave");
   const [startDate, setStartDate] = useState("");
@@ -26,6 +30,8 @@ export default function StudentLeave() {
   const [reason, setReason] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cancelling, setCancelling] = useState<LeaveRequest | null>(null); // the request the dialog is about
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -44,115 +50,82 @@ export default function StudentLeave() {
     reload();
   }
 
-  async function cancel(id: number) {
-    if (!window.confirm("Cancel this leave request? It will be removed.")) return;
+  async function confirmCancel() {
+    if (!cancelling) return;
+    setCancelBusy(true);
     setCancelError(null);
-    const res = await fetch(`/api/leave/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setCancelError(body.error ?? "Could not cancel the request");
+    try {
+      const res = await fetch(`/api/leave/${cancelling.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setCancelError(body.error ?? "Could not cancel the request");
+        reload(); // it may have been decided meanwhile: show the latest state
+        return;
+      }
+      setCancelling(null);
+      reload();
+    } catch {
+      setCancelError("Could not reach the server");
+    } finally {
+      setCancelBusy(false);
     }
-    reload();
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading && !data) return <Spinner label="Loading leave requests" />;
   if (error) return <StateMessage status={status} error={error} />;
 
   return (
-    <div className="flex flex-col gap-8">
-      <form onSubmit={submit} className="flex flex-col gap-3 rounded border border-gray-300 p-4">
-        <h2 className="font-semibold">Request leave</h2>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex flex-col gap-1 text-sm">
-            From
-            <input
-              type="date"
-              required
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="rounded border border-gray-400 bg-transparent px-3 py-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            To
-            <input
-              type="date"
-              required
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="rounded border border-gray-400 bg-transparent px-3 py-2"
-            />
-          </label>
-        </div>
-        <label className="flex flex-col gap-1 text-sm">
-          Reason
-          <textarea
-            required
-            minLength={3}
-            maxLength={500}
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="rounded border border-gray-400 bg-transparent px-3 py-2"
-          />
-        </label>
-        {formError && (
-          <p role="alert" className="text-sm text-red-600">
-            {formError}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="self-start rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black"
-        >
-          {busy ? "Sending..." : "Send request"}
-        </button>
-      </form>
-
-      <section>
-        <h2 className="mb-2 font-semibold">My requests</h2>
-        <p className="mb-2 text-xs text-gray-500">You can cancel a request while it is pending. Once a parent has decided it, it can no longer be changed.</p>
-        {cancelError && <p role="alert" className="mb-2 text-sm text-red-600">{cancelError}</p>}
-        {data && data.requests.length === 0 ? (
-          <p className="text-sm text-gray-500">No leave requests yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-300">
-                  <th className="py-2 pr-4">Dates</th>
-                  <th className="py-2 pr-4">Reason</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Decided by</th>
-                  <th className="py-2"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.requests.map((r) => (
-                  <tr key={r.id} className="border-b border-gray-200">
-                    <td className="py-2 pr-4 whitespace-nowrap">
-                      {r.startDate} to {r.endDate}
-                    </td>
-                    <td className="py-2 pr-4">{r.reason}</td>
-                    <td className="py-2 pr-4">
-                      <span className={`rounded px-2 py-0.5 ${BADGE[r.status]}`}>{r.status}</span>
-                    </td>
-                    <td className="py-2 pr-4">{r.decidedByName ?? "-"}</td>
-                    <td className="py-2">
-                      {r.status === "pending" && (
-                        <button type="button" onClick={() => cancel(r.id)} className="text-red-700 underline">
-                          Cancel request
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="flex flex-col gap-6">
+      <Card title="Request leave" description="A parent of yours approves or rejects it. Approved leave means no late-return or leaving violations for those days.">
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="From">
+              {(c) => <input {...c} type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClasses} />}
+            </FormField>
+            <FormField label="To">
+              {(c) => <input {...c} type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClasses} />}
+            </FormField>
           </div>
-        )}
-      </section>
+          <FormField label="Reason" hint="3 to 500 characters">
+            {(c) => <textarea {...c} required minLength={3} maxLength={500} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} className={inputClasses} />}
+          </FormField>
+          {formError && <Notice tone="danger">{formError}</Notice>}
+          <div><Button type="submit" variant="primary" loading={busy}>{busy ? "Sending…" : "Send request"}</Button></div>
+        </form>
+      </Card>
+
+      <Card title="My requests" description="You can cancel a request while it is pending. Once a parent has decided it, it can no longer be changed.">
+        <DataTable
+          caption="My leave requests"
+          rows={data?.requests ?? []}
+          rowKey={(r) => r.id}
+          empty={<EmptyState title="No leave requests yet">Use the form above to send your first one.</EmptyState>}
+          columns={[
+            { key: "d", header: "Dates", render: (r) => `${r.startDate} to ${r.endDate}`, className: "whitespace-nowrap" },
+            { key: "r", header: "Reason", render: (r) => r.reason },
+            { key: "s", header: "Status", render: (r) => <StatusPill status={r.status} /> },
+            { key: "b", header: "Decided by", render: (r) => r.decidedByName ?? "–" },
+            {
+              key: "a", header: "", render: (r) =>
+                r.status === "pending" ? <Button variant="link" onClick={() => { setCancelError(null); setCancelling(r); }}>Cancel request</Button> : null,
+            },
+          ]}
+        />
+      </Card>
+
+      <ConfirmDialog
+        open={cancelling !== null}
+        title="Cancel this leave request?"
+        confirmLabel="Cancel request"
+        cancelLabel="Keep it"
+        tone="danger"
+        busy={cancelBusy}
+        error={cancelError}
+        onConfirm={confirmCancel}
+        onCancel={() => setCancelling(null)}
+      >
+        {cancelling && <p>Leave from {cancelling.startDate} to {cancelling.endDate} will be removed. This cannot be undone, and a parent will not see it any more.</p>}
+      </ConfirmDialog>
     </div>
   );
 }

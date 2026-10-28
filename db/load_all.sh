@@ -47,6 +47,11 @@ if [ "$has_table" = "t" ]; then
   fi
 fi
 
+# b_meta and b_consents come from load_b.sh, not schema.sql, so a schema reload would leave their old
+# rows behind (a stale "generated history" label, consent rows for students that no longer exist).
+# load_b.sh below creates them again, empty.
+psql_q -c "DROP TABLE IF EXISTS b_consents, b_meta" >/dev/null 2>&1 || true
+
 for name in settings schema seed triggers procedures; do
   echo "== db/$name.sql" >&2
   psql_q < "db/$name.sql" >/dev/null

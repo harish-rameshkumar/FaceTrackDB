@@ -30,7 +30,7 @@ export async function readFrames(form: FormData, min: number, max: number): Prom
 }
 
 /** Embeds every frame and applies the quality gate. A failure of the embedder service becomes one fixed 503. */
-export async function embedFrames(files: File[]): Promise<FrameReport[]> {
+export async function embedFrames(files: File[], options: { quiet?: boolean } = {}): Promise<FrameReport[]> {
   const reports: FrameReport[] = [];
   for (let i = 0; i < files.length; i++) {
     let result;
@@ -44,7 +44,7 @@ export async function embedFrames(files: File[]): Promise<FrameReport[]> {
       throw e;
     }
     const code = checkQuality(result);
-    if (code) {
+    if (code && !options.quiet) {
       // server log only (never sent to the browser): helps calibrate the FACE_MIN_* limits on the real camera
       const f = result.face;
       console.info(`frame ${i} rejected: ${code}; faces=${result.count}${f ? ` score=${f.detScore.toFixed(2)} width=${f.width.toFixed(0)} blur=${f.blurScore.toFixed(0)}` : ""}`);

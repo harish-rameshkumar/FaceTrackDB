@@ -54,32 +54,6 @@ export async function getHostels(): Promise<Hostel[]> {
   return rows;
 }
 
-export interface Summary {
-  inside: number;
-  outside: number;
-  onLeave: number;
-  openViolations: number;
-  reviewWaiting: number;
-}
-
-// The views are defined in db/b_queries.sql (load them with ./db/load_b.sh).
-export async function getSummary(): Promise<Summary> {
-  const { rows } = await getPool().query(
-    `SELECT (SELECT count(*) FROM v_current_presence WHERE presence = 'inside')  AS inside,
-            (SELECT count(*) FROM v_current_presence WHERE presence = 'outside') AS outside,
-            (SELECT count(*) FROM v_current_presence WHERE on_leave_today)       AS on_leave,
-            (SELECT count(*) FROM v_open_violations)                             AS open_violations,
-            (SELECT count(*) FROM v_review_queue)                                AS review_waiting`,
-  );
-  const r = rows[0];
-  return {
-    inside: Number(r.inside),
-    outside: Number(r.outside),
-    onLeave: Number(r.on_leave),
-    openViolations: Number(r.open_violations),
-    reviewWaiting: Number(r.review_waiting),
-  };
-}
 
 export interface Limited<T> { rows: T[]; total: number }
 

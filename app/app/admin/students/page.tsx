@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
+import { PageShell } from "@/components/PageShell";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { DataTable } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field } from "@/components/ui/Field";
+import { inputClasses } from "@/components/ui/styles";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Spinner } from "@/components/ui/Spinner";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { StudentActions } from "./StudentActions";
@@ -13,18 +22,12 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 export default function StudentsPage({ searchParams }: { searchParams: Search }) {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto w-full max-w-5xl p-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Students</h1>
-          <Link href="/admin/students/new" className="rounded bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">Register student</Link>
-        </div>
-        <Suspense fallback={<p className="mt-4 text-sm">Loading…</p>}>
-          <Content searchParams={searchParams} />
-        </Suspense>
-      </main>
-    </>
+    <PageShell width="wide">
+      <PageHeader title="Students" description="Register students and their parents, enrol or re-enrol faces, and delete students who have no history." actions={<Button href="/admin/students/new" variant="primary">Register student</Button>} />
+      <Suspense fallback={<Spinner label="Loading students" />}>
+        <Content searchParams={searchParams} />
+      </Suspense>
+    </PageShell>
   );
 }
 
@@ -70,53 +73,49 @@ async function Content({ searchParams }: { searchParams: Search }) {
     ),
   ]);
 
-  const field = "rounded border border-zinc-300 bg-transparent p-2 text-sm dark:border-zinc-700";
   return (
-    <>
-      <form className="mb-4 mt-4 flex flex-wrap items-end gap-3" method="get">
-        <label className="flex flex-col gap-1 text-xs">Search (SRN, name, email)
-          <input name="q" defaultValue={q} className={field} maxLength={100} />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">Hostel
-          <select name="hostel" defaultValue={Number.isInteger(hostel) && hostel > 0 ? String(hostel) : ""} className={field}>
-            <option value="">All</option>
-            {hostels.rows.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs">Face enrolment
-          <select name="status" defaultValue={status} className={field}>
-            <option value="">All</option>
-            <option value="enrolled">Enrolled</option>
-            <option value="none">Not enrolled</option>
-          </select>
-        </label>
-        <button className="rounded border border-zinc-400 px-3 py-2 text-sm">Filter</button>
-        <Link href="/admin/students" className="py-2 text-sm underline">Clear</Link>
+    <div className="flex flex-col gap-6">
+      <form method="get" aria-label="Filters" className="rounded-lg border border-border bg-surface p-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Search (SRN, name, email)"><input name="q" defaultValue={q} className={inputClasses} maxLength={100} /></Field>
+          <Field label="Hostel">
+              <select name="hostel" defaultValue={Number.isInteger(hostel) && hostel > 0 ? String(hostel) : ""} className={inputClasses}>
+                <option value="">All</option>
+                {hostels.rows.map((h) => <option key={h.hostel_id} value={h.hostel_id}>{h.name}</option>)}
+              </select>
+            </Field>
+          <Field label="Face enrolment">
+              <select name="status" defaultValue={status} className={inputClasses}>
+                <option value="">All</option>
+                <option value="enrolled">Enrolled</option>
+                <option value="none">Not enrolled</option>
+              </select>
+            </Field>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button type="submit" variant="primary">Filter</Button>
+          <Button href="/admin/students" variant="secondary">Clear</Button>
+        </div>
       </form>
-      <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">{students.rowCount} student{students.rowCount === 1 ? "" : "s"}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-300 dark:border-zinc-700">
-              <th className="py-2">SRN</th><th>Name</th><th>Hostel / room</th><th>Login email</th><th>Parents</th><th>Face samples</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.rows.map((r) => (
-              <tr key={r.student_id} className="border-b border-zinc-200 align-top dark:border-zinc-800">
-                <td className="py-2">{r.roll_no}</td>
-                <td>{r.name}</td>
-                <td>{r.hostel}{r.room_no ? ` · ${r.room_no}` : ""}</td>
-                <td className="break-all">{r.email}</td>
-                <td>{r.parents || "–"}</td>
-                <td>{r.samples > 0 ? `${r.samples} (enrolled)` : "0 (not enrolled)"}</td>
-                <td><StudentActions studentId={r.student_id} userId={r.user_id} name={r.name} samples={r.samples} /></td>
-              </tr>
-            ))}
-            {students.rowCount === 0 && <tr><td colSpan={7} className="py-6 text-center text-zinc-500">No students match.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </>
+
+      <Card title={`${students.rowCount} student${students.rowCount === 1 ? "" : "s"}`}>
+        <DataTable
+          caption="Students"
+          rows={students.rows}
+          rowKey={(r) => r.student_id}
+          empty={<EmptyState title="No students match" action={<Button href="/admin/students/new" variant="primary" size="sm">Register a student</Button>}>Change the filters, or register a new student.</EmptyState>}
+          columns={[
+            { key: "srn", header: "SRN", render: (r) => r.roll_no, className: "whitespace-nowrap" },
+            { key: "n", header: "Name", render: (r) => r.name },
+            { key: "h", header: "Hostel / room", render: (r) => `${r.hostel}${r.room_no ? ` · ${r.room_no}` : ""}` },
+            { key: "e", header: "Login email", render: (r) => r.email },
+            { key: "p", header: "Parents", render: (r) => r.parents || "–" },
+            { key: "f", header: "Face samples", render: (r) => <span className="inline-flex items-center gap-2">{r.samples} <StatusPill status={r.samples > 0 ? "matched" : "no_match"} label={r.samples > 0 ? "Enrolled" : "Not enrolled"} /></span> },
+            { key: "a", header: "Actions", render: (r) => <StudentActions studentId={r.student_id} userId={r.user_id} name={r.name} samples={r.samples} /> },
+          ]}
+        />
+        <p className="mt-3 text-xs text-muted"><Link href="/admin/students/new" className="underline">Register another student</Link></p>
+      </Card>
+    </div>
   );
 }

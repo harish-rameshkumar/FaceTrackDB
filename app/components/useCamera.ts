@@ -34,7 +34,3 @@ export function useCamera() {
 
   return { videoRef, ready, error };
 }
-
-export function CameraView({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement | null> }) {
-  return <video ref={videoRef} muted playsInline className="aspect-[4/3] w-full max-w-md rounded-lg bg-black object-cover" />;
-}

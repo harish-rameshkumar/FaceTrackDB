@@ -1,8 +1,11 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import AppHeader from "@/components/AppHeader";
 import { AccessDenied } from "@/components/AccessDenied";
 import { EnrolForm } from "@/app/enrol/EnrolForm";
+import { PageShell } from "@/components/PageShell";
+import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Spinner } from "@/components/ui/Spinner";
 import { parseId } from "@/lib/api-helpers";
 import { AuthError, requireRole } from "@/lib/auth";
 import { getPool } from "@/lib/db";
@@ -11,15 +14,11 @@ export const metadata = { title: "Enrol face | FaceTrackDB" };
 
 export default function EnrolStudentPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto w-full max-w-3xl p-8">
-        <h1 className="text-2xl font-semibold">Face enrolment</h1>
-        <Suspense fallback={<p className="mt-4 text-sm">Loading…</p>}>
-          <Content params={params} />
-        </Suspense>
-      </main>
-    </>
+    <PageShell suspendHeader>
+      <Suspense fallback={<Spinner label="Loading" />}>
+        <Content params={params} />
+      </Suspense>
+    </PageShell>
   );
 }
 
@@ -40,16 +39,21 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
       )
     : { rows: [] };
   if (rows.length === 0) {
-    return <p className="mt-4 text-sm">Student not found. <Link href="/admin/students" className="underline">Back to students</Link></p>;
+    return (
+      <>
+        <PageHeader title="Face enrolment" />
+        <Notice tone="warning" title="Student not found"><Button href="/admin/students" variant="link">Back to students</Button></Notice>
+      </>
+    );
   }
   const s = rows[0];
   return (
     <>
-      <p className="mb-6 mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        {s.name} ({s.roll_no}) · {s.hostel} · {s.profiles} face sample{s.profiles === 1 ? "" : "s"} stored.
-        {s.profiles > 0 && " Re-enrolling replaces the old samples once the new ones are saved."}
-        {" "}<Link href="/admin/students" className="underline">Back to students</Link>
-      </p>
+      <PageHeader
+        title="Face enrolment"
+        description={`${s.name} (${s.roll_no}) · ${s.hostel} · ${s.profiles} face sample${s.profiles === 1 ? "" : "s"} stored.${s.profiles > 0 ? " Re-enrolling replaces the old samples once the new ones are saved." : ""}`}
+        actions={<Button href="/admin/students" variant="secondary">Back to students</Button>}
+      />
       <EnrolForm students={[s]} fixedStudentId={s.student_id} replace={s.profiles > 0} />
     </>
   );
