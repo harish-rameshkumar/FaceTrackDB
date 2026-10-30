@@ -74,7 +74,7 @@ cd app; npm install; npm run qdrant:init; npm run dev
 
 **Never reload the schema on a database you want to keep.** `./db/load_all.sh` refuses to run while `face_profiles` holds enrolled faces unless you add `--yes`, because reloading drops them and leaves their vectors orphaned in Qdrant; afterwards run `cd app && npm run qdrant:reset -- --yes` and enrol everyone again. To upgrade an existing database, use `./db/migrate.sh`: it only adds what is missing (see `db/migrations/`).
 
-## Demo script
+## Feature walk-through
 
 1. **Sign in as each role** (table above): `/login`, then look at the navigation each one gets.
 2. **Register a student and parents** (admin): *Students > Register student*. Fill in the student and one or two parents, tick the consent box, copy the one-time credentials, then continue to **face enrolment**: follow the on-screen prompts (five frames).
@@ -84,7 +84,48 @@ cd app; npm install; npm run qdrant:init; npm run dev
 6. **Scan** (security or admin): *Gate*, purpose "Roll call", scan the enrolled face; then purpose "Gate in/out" and watch the IN/OUT alternate (the cooldown stops repeats).
 7. **Close the roll call** once its window has ended (*Roll calls > Close roll call*): the dialog shows how many students will be marked absent; absent students without approved leave get a *missed attendance* violation.
 8. **Resolve the violation** (warden): *Violations > Mark resolved*; the resolution time is shown.
-9. **Reports** (warden or admin): *Reports*; to have data to show, run `cd app && npm run demo:history -- --days 30 --yes` first (simulated, and labelled so). Open **Presentation mode** and move with the arrow keys; *Print / PDF* exports one slide per page.
+9. **Reports** (warden or admin): *Reports*; to have data to show, run `cd app && npm run demo:seed -- --yes` first (see **Demo data** below; simulated, and labelled so). Open **Presentation mode** and move with the arrow keys; *Print / PDF* exports one slide per page.
+
+## Demo data and the presentation script
+
+For showing the project (for example to a teacher) there is a one-command, repeatable, fully removable demo dataset. Everything it creates is **simulated** and labelled so (`b_meta` key `generated_history`, and every row is recorded by id in the table `b_demo_rows`). It never creates face data: no `face_profiles` rows, no Qdrant points, no photos.
+
+```bash
+cd app
+npm run demo:seed -- --yes [--seed N] [--days D]    # 14 demo students + 45 days of history (default seed 20261027)
+npm run demo:reset -- --yes                          # removes ONLY what demo:seed created
+```
+
+- Both print `target database: NAME (host H:PORT, user U)` first and do nothing without `--yes`. Add `--db NAME` to make the command refuse unless the database is the one you named; a non-local host also needs `--allow-remote`.
+- `demo:seed` refuses when demo data already exists; `--reset` removes it first and seeds again. The same `--seed` gives the same data (dates are relative to today).
+- The students are registered through the same `register_student` function as the admin screen (every trigger and constraint runs): 14 students in at least 3 hostels (a third hostel, gate and camera are added only if the database has fewer than 3), each with a student login and a parent login (13 parents; two siblings share one). All passwords are `FaceTrack@123`, all emails end in `@facetrack.test`.
+- History: roll calls, gate IN/OUT, face scans, leave requests (pending, approved, rejected), late returns, violations (open and resolved). A few students have poor attendance, a few are night owls, weekends differ from weekdays, there are two festival-night clusters and one week of bad lighting (more low-confidence scans).
+- `demo:reset` prints before/after row counts for users, students, parents, **face_profiles**, roll calls, attendance, gate log, face events, leave, violations, hostels, gates and cameras. Real enrolments are not touched, it never connects to Qdrant, and it exits with an error if `face_profiles` changed. Running it twice is harmless ("Nothing to do").
+- Generated rows are database-only: no photo, no embedding. The gate can only match enrolled faces, so it never matches them; their low-confidence scans appear on the review page like any other.
+
+**Reserved for the live demo** (the seed never uses this SRN, email or any first-floor room (`x-1nn`); it prints the suggestion again at the end):
+
+| | |
+|---|---|
+| Name | Harish Rameshkumar |
+| SRN | `24CS901` |
+| Hostel / room | Aryabhatta Boys Hostel / `A-120` |
+| Student email | `harish.demo@facetrack.test` |
+| Parent | Rameshkumar (father), `parent.harish@facetrack.test`, `+919845000901` |
+
+After you have registered that student, a later `demo:seed --reset` suggests the next free identity (`24CS902`, ...). `demo:reset` never removes real registrations; delete your live student in *Students* if you want a clean start (this also removes the Qdrant point).
+
+### Demo script (about 10 minutes)
+
+1. **Seed.** `cd app && npm run demo:seed -- --yes`. Check the printed target database, the per-table summary and the live-demo suggestion.
+2. **Warden walk-through.** Sign in as `warden1@facetrack.test` / `FaceTrack@123`. *Dashboard*: who is where, roll call attendance, open violations, monthly attendance. *Reports*: the 11 reports (each shows its SQL query and data), then **Presentation mode** (arrow keys, `End`, *Print / PDF*). Point out the "Includes generated demo history" note.
+3. **Register and enrol live.** Sign in as `admin1@facetrack.test`. *Students > Register student* with the table above (tick consent, copy the one-time credentials), then continue to face enrolment at `/enrol` (five frames).
+4. **Gate scan.** As warden create a roll call for Aryabhatta with a window containing the current time. Sign in as `security1@facetrack.test`, *Gate*, purpose "Roll call", scan your face: you are marked present. Then purpose "Gate in/out" for an OUT, and again later for an IN.
+5. **Show the new record.** As warden: *Dashboard* and *Search* show the new student (real, not generated); *Roll calls* shows the new mark; *Reports* count it next to the generated history (reload, then *Apply*).
+6. **Stranger.** Scan someone who is not enrolled: the result is "No match" and a `no_match` face event is stored; it shows up in the recognition-outcomes report.
+7. **Reset.** `npm run demo:reset -- --yes`: the before/after table shows the demo rows gone and `face_profiles` unchanged.
+
+Things to know: closing a **real** roll call marks every demo student absent (they have no faces) and raises missed-attendance violations for them; those rows belong to demo students and disappear on reset, but avoid closing a roll call during the demo. A leave request cancelled by the student is deleted, not a state, so "cancelled" leave cannot appear in the data. The department is part of the SRN (there is no separate column). The default history is 45 days so two calendar months show in the monthly report.
 
 ## Troubleshooting
 
@@ -206,6 +247,8 @@ A student's score is the mean of their best two sample similarities. At the gate
 Hardening (fixed error messages, login limits, JWT secret, revocation, page access, leave cancellation, `resolved_at`; 30 checks; needs `npm run build` first because it starts a second copy of the app on port 3299): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:hardening`. SQL: `db/test_cases.sql` now has 98 checks (the extra 27 cover `resolved_at`, `token_version` and the login limit functions).
 
 Registration, deletion, roll calls and password change (HTTP, against a scratch database and a running server; 31 checks): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:register`. The SQL functions: `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_register_tests.sql` (26 checks, rolls back).
+
+Demo data: SQL `db/b_demo_tests.sql` (10 checks, rolls back) and `BASE_URL=http://localhost:3000 npm run test:demo` (scratch database only; seeds, checks and resets).
 
 Reports: SQL fixture test `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_reports_tests.sql` (16 checks with known data, rolls back) and page tests `BASE_URL=http://localhost:3000 npm run test:reports` (access, bad filters, empty range, no raw errors; set `EXPECT_HISTORY_NOTE=1` or `0`).
 
