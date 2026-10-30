@@ -221,10 +221,10 @@ export async function generateHistory(client: PoolClient, opts: HistoryOptions):
       }
       // the camera is unsure now and then: a review-band event, no gate log. A warden has decided most of them
       // (confirm -> matched, reject -> no match); the last few days are still waiting in the review queue.
-      if (chance(quality ? 0.16 : 0.05)) {
+      if (chance(quality ? 0.3 : 0.05)) {
         const recent = day >= addDays(today, -3);
         const decided = !recent && wardenId !== null && chance(0.85);
-        const confirm = chance(0.7);
+        const confirm = chance(quality ? 0.5 : 0.75);
         await faceEvent(cam.camera_id, decided && !confirm ? null : s.id, r(0.36, 0.49), decided ? (confirm ? "matched" : "no_match") : "low_confidence",
           stamp(day, ri(7 * 60, 21 * 60), ri(0, 59)), decided ? wardenId : null);
       }
@@ -243,6 +243,23 @@ export async function generateHistory(client: PoolClient, opts: HistoryOptions):
     // a stranger or two walks past each gate camera (more at weekends)
     for (const h of new Set(students.map((s) => s.hostelId))) {
       for (let k = ri(0, weekend ? 3 : 2); k > 0; k--) await faceEvent(pick(camsOf(h)).camera_id, null, r(0.05, 0.33), "no_match", stamp(day, ri(7 * 60, 22 * 60), ri(0, 59)));
+    }
+  }
+
+  // ---- a few students are out RIGHT NOW (their morning OUT scan, no return yet), so the dashboard has an "outside" column ----
+  // Only when seeding after 11:30, so the OUT times (08:30-11:00) are already in the past; the choice of students and times
+  // depends on the seed, not on the minute the command runs.
+  const nowMinutes = Number((await q<{ m: number }>("SELECT (extract(hour FROM localtime) * 60 + extract(minute FROM localtime))::int AS m"))[0].m);
+  const outToday: number[] = [];
+  if (nowMinutes >= 11 * 60 + 30) {
+    const candidates = students.filter((s) => s.lastDir === "IN" && !onLeave(s.id, today));
+    for (const s of candidates.filter((_, i) => i % Math.max(1, Math.round(candidates.length / 3)) === 0).slice(0, 3)) {
+      const cam = pick(camsOf(s.hostelId));
+      const ts = stamp(today, ri(8 * 60 + 30, 11 * 60), ri(0, 59));
+      if (asMs(ts) <= s.lastMs) continue;
+      const evId = await faceEvent(cam.camera_id, s.id, simAt(today), "matched", ts);
+      const res = await tryCall<{ p_log_id: number }>("CALL record_entry_exit($1, $2, $3, 'OUT', NULL, NULL)", [s.id, cam.gate_id, evId]);
+      if (res) { trackedLogs.push(res.p_log_id); await track("gate_log", res.p_log_id); s.lastDir = "OUT"; s.lastMs = asMs(ts); stats.gateEvents++; outToday.push(s.id); }
     }
   }
 
