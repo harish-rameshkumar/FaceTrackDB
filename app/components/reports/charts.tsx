@@ -205,9 +205,9 @@ export function ReportChart({ report, height }: { report: ReportResult; height: 
       return <Bars {...p} pid={pid} xTitle="Decision" yTitle="Leave requests (count)" labels height={height} />;
     }
     case "recognition_outcomes": {
-      const data = rows.map((r) => ({ x: `Week of ${r.week}`, matched: Number(r.matched), low_confidence: Number(r.low_confidence), no_match: Number(r.no_match) }));
+      const data = rows.map((r) => ({ x: String(r.week).slice(5, 10), matched: Number(r.matched), low_confidence: Number(r.low_confidence), no_match: Number(r.no_match) }));
       const series = ["matched", "low_confidence", "no_match"].map((k): Series => ({ key: k, label: pretty(k) }));
-      return <Bars data={data} series={series} pid={pid} stacked xTitle="Week" yTitle="Face scans (count)" height={height} />;
+      return <Bars data={data} series={series} pid={pid} stacked xTitle="Week starting (month-day)" yTitle="Face scans (count)" height={height} />;
     }
     case "similarity_distribution": {
       const p = pivot(rows, "band", "outcome", "scans");
