@@ -18,7 +18,10 @@
     "demo:history": "tsx --env-file=.env.local scripts/demo-history.ts",
     "test:reports": "tsx --env-file=.env.local scripts/test-reports.ts",
     "test:hardening": "tsx --env-file=.env.local scripts/test-hardening.ts",
-    "check:contrast": "tsx scripts/check-contrast.ts"
+    "check:contrast": "tsx scripts/check-contrast.ts",
+    "demo:seed": "tsx --env-file=.env.local scripts/demo-seed.ts",
+    "demo:reset": "tsx --env-file=.env.local scripts/demo-reset.ts",
+    "test:demo": "tsx --env-file=.env.local scripts/test-demo.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.19.0",
