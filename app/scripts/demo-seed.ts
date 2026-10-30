@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import { getPool } from "../lib/db";
 import { argValue, confirmTarget } from "./lib/demo-target";
 import { generateHistory } from "./lib/demo-history";
-import { DEMO_PASSWORD, DEMO_STUDENTS, LIVE_STUDENT, parentEmail, parentPhone, srn, studentEmail } from "./lib/demo-data";
+import { DEMO_PASSWORD, DEMO_STUDENTS, liveIdentity, parentEmail, parentPhone, srn, studentEmail } from "./lib/demo-data";
 
 const args = process.argv.slice(2);
 const SEED = Number(argValue(args, "--seed") ?? 20261027);
@@ -51,15 +51,23 @@ async function main() {
     }
   }
 
-  // nothing real may be in the way: refuse (before changing anything) if one of our emails or SRNs is taken
-  const emails = [...DEMO_STUDENTS.map(studentEmail), ...DEMO_STUDENTS.map(parentEmail), LIVE_STUDENT.email, LIVE_STUDENT.parentEmail];
-  const srns = [...DEMO_STUDENTS.map(srn), LIVE_STUDENT.srn];
+  // nothing real may be in the way of OUR students: refuse (before changing anything) if one of their emails or SRNs is taken
+  const emails = [...DEMO_STUDENTS.map(studentEmail), ...DEMO_STUDENTS.map(parentEmail)];
+  const srns = DEMO_STUDENTS.map(srn);
   const takenEmail = await one("SELECT email FROM users WHERE lower(email) = ANY($1::text[])", [emails]);
   const takenSrn = await one("SELECT roll_no FROM students WHERE upper(roll_no) = ANY($1::text[])", [srns.map((s) => s.toUpperCase())]);
   if (takenEmail.length || takenSrn.length) {
     console.error(`REFUSING: these already exist and are not demo rows: ${[...takenEmail.map((r) => r.email), ...takenSrn.map((r) => r.roll_no)].join(", ")}. Nothing was changed.`);
     process.exit(1);
   }
+  // the live-demo student: the suggested SRN and emails if they are free, else the next free ones (e.g. after a live demo already used them)
+  let liveSuffix = 0;
+  for (; liveSuffix < 99; liveSuffix++) {
+    const trial = liveIdentity(liveSuffix);
+    const used = (await one("SELECT 1 FROM students WHERE upper(roll_no) = upper($1) UNION ALL SELECT 1 FROM users WHERE lower(email) = ANY($2::text[])", [trial.srn, [trial.email, trial.parentEmail]])).length > 0;
+    if (!used) break;
+  }
+  const liveId = liveIdentity(liveSuffix);
   const adminId = (await one("SELECT user_id FROM users WHERE role = 'admin' ORDER BY user_id LIMIT 1"))[0]?.user_id;
   if (!adminId) {
     console.error("There is no admin account to register the students with.");
@@ -108,7 +116,7 @@ async function main() {
 
     // ---- the history ----
     const { stats, label } = await generateHistory(client, { days: DAYS, seed: SEED, today });
-    const live = { ...LIVE_STUDENT, hostel: hostels[0].name, room: `${hostels[0].name[0].toUpperCase()}-${LIVE_STUDENT.roomNumber}` };
+    const live = { ...liveId, hostel: hostels[0].name, room: `${hostels[0].name[0].toUpperCase()}-${liveId.roomNumber}` };
     await client.query("INSERT INTO b_meta (key, value) VALUES ('demo_seed', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
       [JSON.stringify({ seed: SEED, days: DAYS, students: created.length, hostels_added: added, seeded_at: today, live_student: live })]);
     await client.query("COMMIT");

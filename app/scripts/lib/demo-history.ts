@@ -231,9 +231,13 @@ export async function generateHistory(client: PoolClient, opts: HistoryOptions):
 
       // roll call
       if (sessionOf.has(s.hostelId) && !onLeave(s.id, day) && !outDuringRollCall && chance(s.attendProb * (weekend ? 0.97 : 1))) {
-        const low = chance(quality ? 0.08 : 0.025);
+        // A low-confidence roll-call scan is only generated for older days, and a warden has long since confirmed it
+        // (the face event becomes 'matched'; the attendance mark keeps the status it got, as in the app). Recent days
+        // never get one, so the review queue only holds gate scans, which can be confirmed AND rejected.
+        const low = day < addDays(today, -3) && wardenId !== null && chance(quality ? 0.08 : 0.025);
         const evId = await faceEvent(cam.camera_id, s.id, low ? r(0.36, 0.49) : simAt(day), low ? "low_confidence" : "matched", stamp(day, ri(20 * 60 + 31, 20 * 60 + 58), ri(0, 59)));
         if (await tryCall("CALL mark_attendance($1, $2, $3, NULL)", [s.id, sessionOf.get(s.hostelId), evId])) stats.marks++;
+        if (low) await client.query("UPDATE face_events SET outcome = 'matched', reviewed_by = $2 WHERE event_id = $1", [evId, wardenId]);
       }
     }
     // a stranger or two walks past each gate camera (more at weekends)

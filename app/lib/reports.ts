@@ -279,8 +279,12 @@ export async function getGeneratedHistoryNote(f: ReportFilters): Promise<string 
     const v = JSON.parse(rows[0].value) as { days: number; from: string; to: string; first_event_id?: number; last_event_id?: number };
     // only when the selected range overlaps the generated days
     if (f.to < v.from || f.from > v.to) return null;
-    // the label only counts while some of the generated face events still exist
-    if (typeof v.first_event_id === "number" && typeof v.last_event_id === "number") {
+    // the label only counts while some of the generated rows still exist: b_demo_rows lists them exactly;
+    // a label from before that table existed falls back to its range of face-event ids
+    const tracked = await getPool().query("SELECT 1 FROM b_demo_rows WHERE kind = 'face_event' LIMIT 1").catch(() => null);
+    if (tracked) {
+      if (tracked.rowCount === 0) return null;
+    } else if (typeof v.first_event_id === "number" && typeof v.last_event_id === "number") {
       const still = await getPool().query("SELECT 1 FROM face_events WHERE event_id BETWEEN $1 AND $2 LIMIT 1", [v.first_event_id, v.last_event_id]);
       if (still.rowCount === 0) return null;
     }

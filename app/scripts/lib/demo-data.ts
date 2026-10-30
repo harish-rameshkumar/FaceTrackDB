@@ -38,3 +38,11 @@ export const LIVE_STUDENT = {
   name: "Harish Rameshkumar", srn: "24CS901", roomNumber: "120",
   email: "harish.demo@facetrack.test", parentName: "Rameshkumar", parentEmail: "parent.harish@facetrack.test", parentPhone: "+919845000901", relation: "father",
 };
+
+/** The live-demo identity, or the n-th alternative (n = 1, 2 ...) when an earlier one is already taken. */
+export function liveIdentity(n: number) {
+  if (n === 0) return LIVE_STUDENT;
+  return {
+    ...LIVE_STUDENT, srn: `24CS${901 + n}`, email: `harish.demo${n + 1}@facetrack.test`, parentEmail: `parent.harish${n + 1}@facetrack.test`, parentPhone: `+9198450009${String(1 + n).padStart(2, "0")}`,
+  };
+}
