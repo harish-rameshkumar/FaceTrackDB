@@ -116,7 +116,10 @@ export const REPORTS: ReportDef[] = [
   {
     key: "late_return_rank", fn: "report_late_return_rank", concept: "Window functions: RANK() and DENSE_RANK()", chart: "hbars",
     note: "Ties share a rank: RANK() skips the next number after a tie, DENSE_RANK() does not.",
-    finding: (r) => `${r[0].student} (${r[0].hostel}) has the most late returns: ${r[0].late_returns}`,
+    finding: (r) => {
+      const top = [...r].sort((a, b) => n(b.late_returns) - n(a.late_returns))[0];
+      return `${top.student} (${top.hostel}) has the most late returns: ${top.late_returns}`;
+    },
     numbers: (r) => [
       { label: "Students with late returns", value: String(r.length) },
       { label: "Most by one student", value: String(Math.max(...r.map((x) => n(x.late_returns)))) },
@@ -216,7 +219,10 @@ export const REPORTS: ReportDef[] = [
   {
     key: "top_words", fn: "report_top_words", concept: "Full-text search: to_tsvector and lexemes", chart: "hbars",
     note: "Words are stemmed lexemes (for example 'famili' stands for family). Search terms typed on the search page are not logged, so a 'top search terms' report is not possible.",
-    finding: (r) => `"${r[0].word}" is the most common word in violation details and leave reasons (${r[0].occurrences} times)`,
+    finding: (r) => {
+      const lv = r.filter((x) => x.source === "leave reasons")[0];
+      return `"${r[0].word}" is the most common word in violation details${lv ? `; in leave reasons it is "${lv.word}" (${lv.occurrences} times)` : ""}`;
+    },
     numbers: (r) => [
       { label: "Top word", value: String(r[0].word) },
       { label: "Occurrences", value: String(n(r[0].occurrences)) },
