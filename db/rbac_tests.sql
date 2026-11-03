@@ -102,9 +102,6 @@ SELECT pg_temp.expect('ft_student', 'ft_student', 9601, 'cannot create users', '
 SELECT pg_temp.expect('ft_student', 'ft_student', 9601, 'cannot register students', 'SELECT register_student(''{}''::jsonb, ''[]''::jsonb, true, 1)', 'denied');
 SELECT pg_temp.expect('ft_student', 'ft_student', 9601, 'cannot run the report functions', 'SELECT * FROM report_top_words(current_date - 30, current_date, NULL)', 'denied');
 SELECT pg_temp.expect('ft_student', 'ft_student', 9601, 'cannot call mark_attendance', 'CALL mark_attendance(9601, 9601, NULL, NULL)', 'denied');
-SELECT pg_temp.expect('ft_student', 'ft_student', 9601, 'a missing app.user_id shows nothing', 'SELECT student_id FROM students', 'rows=1');  -- replaced below by the NULL-user case
--- (the next line REPLACES the previous one: with no user id the student sees no rows)
-DELETE FROM t WHERE what = 'a missing app.user_id shows nothing';
 SELECT pg_temp.expect('ft_student', 'ft_student', NULL, 'with no user id set, the student sees no rows', 'SELECT student_id FROM students', 'rows=0');
 
 -- ---------------- ft_parent (user 9611 = parent of student RB1 only) ----------------
