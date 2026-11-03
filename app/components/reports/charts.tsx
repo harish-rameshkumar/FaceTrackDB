@@ -72,20 +72,22 @@ function pivot(rows: Row[], xKey: string, serKey: string, valKey: string, xLabel
     row[s] = Number(r[valKey] ?? 0);
     data.set(x, row);
   }
+  // a fixed order, so the same hostel (or status) keeps the same colour and pattern on every chart
+  serKeys.sort();
   return { data: xs.map((x) => data.get(x)!), series: serKeys.map((k): Series => ({ key: k, label: pretty(k) })) };
 }
 
 interface BarsProps {
   data: Row[]; series: Series[]; xTitle: string; yTitle: string; pid: string;
-  stacked?: boolean; horizontal?: boolean; domain?: [number, number]; unit?: string; labels?: boolean; refLine?: { value: number; label: string };
+  stacked?: boolean; horizontal?: boolean; domain?: [number, number]; unit?: string; decimals?: number; labels?: boolean; refLine?: { value: number; label: string };
   catWidth?: number; height: number;
 }
 
-function Bars({ data, series, xTitle, yTitle, pid, stacked, horizontal, domain, unit = "", labels, refLine, catWidth = 150, height }: BarsProps) {
+function Bars({ data, series, xTitle, yTitle, pid, stacked, horizontal, domain, unit = "", decimals, labels, refLine, catWidth = 150, height }: BarsProps) {
   const common = { data, margin: { top: 16, right: 24, left: 8, bottom: 28 } };
   const bars = series.map((s, i) => (
     <Bar key={s.key} dataKey={s.key} name={s.label} fill={fill(pid, i)} stroke={COLORS[i % COLORS.length]} strokeWidth={1} stackId={stacked ? "a" : undefined} maxBarSize={horizontal ? 36 : 120} isAnimationActive={false}>
-      {labels && <LabelList dataKey={s.key} position={horizontal ? "right" : "top"} style={{ fill: "var(--chart-fg)", fontSize: 12 }} formatter={(v) => (Number(v) === 0 ? "" : `${v}${unit}`)} />}
+      {labels && <LabelList dataKey={s.key} position={horizontal ? "right" : "top"} style={{ fill: "var(--chart-fg)", fontSize: 12 }} formatter={(v) => (Number(v) === 0 ? "" : `${decimals === undefined ? v : Number(v).toFixed(decimals)}${unit}`)} />}
     </Bar>
   ));
   return (
@@ -183,8 +185,10 @@ export function ReportChart({ report, height }: { report: ReportResult; height: 
       return <Steps {...p} xTitle="Date" yTitle="Violations so far (running total)" height={height} />;
     }
     case "late_return_rank": {
-      const data = rows.map((r) => ({ x: `#${r.rank} ${r.student} (${String(r.hostel).split(" ")[0]})`, "Late returns": Number(r.late_returns) }));
-      return <Bars data={data} series={[{ key: "Late returns", label: "Late returns" }]} pid={pid} xTitle="Student" yTitle="Late returns (count)" horizontal labels height={Math.max(height, 60 + data.length * 36)} catWidth={210} />;
+      // the ten students with the most late returns, whichever hostel they are in (the query lists the top ranks of each hostel)
+      const top = [...rows].sort((a, b) => Number(b.late_returns) - Number(a.late_returns) || String(a.student).localeCompare(String(b.student))).slice(0, 10);
+      const data = top.map((r) => ({ x: `${r.student} (${String(r.hostel).split(" ")[0]})`, "Late returns": Number(r.late_returns) }));
+      return <Bars data={data} series={[{ key: "Late returns", label: "Late returns" }]} pid={pid} xTitle="Student" yTitle="Late returns (count), top 10" horizontal labels height={Math.max(height, 70 + data.length * 32)} catWidth={210} />;
     }
     case "gate_traffic_by_hour": {
       const p = pivot(rows, "hour", "direction", "crossings", (h) => String(Number(h)).padStart(2, "0"));
@@ -194,16 +198,16 @@ export function ReportChart({ report, height }: { report: ReportResult; height: 
       const sorted = [...rows].sort((a, b) => Number(a.weekday_no) - Number(b.weekday_no));
       const p = pivot(sorted, "weekday", "hostel", "avg_hours");
       p.data.sort((a, b) => WEEKDAY_ORDER.indexOf(String(a.x)) - WEEKDAY_ORDER.indexOf(String(b.x)));
-      return <Bars {...p} pid={pid} xTitle="Weekday the trip started" yTitle="Average time outside (hours)" unit=" h" labels height={height} />;
+      return <Bars {...p} pid={pid} xTitle="Weekday the trip started" yTitle="Average time outside (hours)" decimals={1} labels height={height} />;
     }
     case "leave_summary": {
       const p = pivot(rows, "status", "hostel", "requests", pretty);
       return <Bars {...p} pid={pid} xTitle="Decision" yTitle="Leave requests (count)" labels height={height} />;
     }
     case "recognition_outcomes": {
-      const data = rows.map((r) => ({ x: `Week of ${r.week}`, matched: Number(r.matched), low_confidence: Number(r.low_confidence), no_match: Number(r.no_match) }));
+      const data = rows.map((r) => ({ x: String(r.week).slice(5, 10), matched: Number(r.matched), low_confidence: Number(r.low_confidence), no_match: Number(r.no_match) }));
       const series = ["matched", "low_confidence", "no_match"].map((k): Series => ({ key: k, label: pretty(k) }));
-      return <Bars data={data} series={series} pid={pid} stacked xTitle="Week" yTitle="Face scans (count)" height={height} />;
+      return <Bars data={data} series={series} pid={pid} stacked xTitle="Week starting (month-day)" yTitle="Face scans (count)" height={height} />;
     }
     case "similarity_distribution": {
       const p = pivot(rows, "band", "outcome", "scans");

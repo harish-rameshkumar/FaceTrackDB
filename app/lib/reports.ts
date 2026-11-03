@@ -116,7 +116,10 @@ export const REPORTS: ReportDef[] = [
   {
     key: "late_return_rank", fn: "report_late_return_rank", concept: "Window functions: RANK() and DENSE_RANK()", chart: "hbars",
     note: "Ties share a rank: RANK() skips the next number after a tie, DENSE_RANK() does not.",
-    finding: (r) => `${r[0].student} (${r[0].hostel}) has the most late returns: ${r[0].late_returns}`,
+    finding: (r) => {
+      const top = [...r].sort((a, b) => n(b.late_returns) - n(a.late_returns))[0];
+      return `${top.student} (${top.hostel}) has the most late returns: ${top.late_returns}`;
+    },
     numbers: (r) => [
       { label: "Students with late returns", value: String(r.length) },
       { label: "Most by one student", value: String(Math.max(...r.map((x) => n(x.late_returns)))) },
@@ -216,7 +219,10 @@ export const REPORTS: ReportDef[] = [
   {
     key: "top_words", fn: "report_top_words", concept: "Full-text search: to_tsvector and lexemes", chart: "hbars",
     note: "Words are stemmed lexemes (for example 'famili' stands for family). Search terms typed on the search page are not logged, so a 'top search terms' report is not possible.",
-    finding: (r) => `"${r[0].word}" is the most common word in violation details and leave reasons (${r[0].occurrences} times)`,
+    finding: (r) => {
+      const lv = r.filter((x) => x.source === "leave reasons")[0];
+      return `"${r[0].word}" is the most common word in violation details${lv ? `; in leave reasons it is "${lv.word}" (${lv.occurrences} times)` : ""}`;
+    },
     numbers: (r) => [
       { label: "Top word", value: String(r[0].word) },
       { label: "Occurrences", value: String(n(r[0].occurrences)) },
@@ -279,8 +285,12 @@ export async function getGeneratedHistoryNote(f: ReportFilters): Promise<string 
     const v = JSON.parse(rows[0].value) as { days: number; from: string; to: string; first_event_id?: number; last_event_id?: number };
     // only when the selected range overlaps the generated days
     if (f.to < v.from || f.from > v.to) return null;
-    // the label only counts while some of the generated face events still exist
-    if (typeof v.first_event_id === "number" && typeof v.last_event_id === "number") {
+    // the label only counts while some of the generated rows still exist: b_demo_rows lists them exactly;
+    // a label from before that table existed falls back to its range of face-event ids
+    const tracked = await getPool().query("SELECT 1 FROM b_demo_rows WHERE kind = 'face_event' LIMIT 1").catch(() => null);
+    if (tracked) {
+      if (tracked.rowCount === 0) return null;
+    } else if (typeof v.first_event_id === "number" && typeof v.last_event_id === "number") {
       const still = await getPool().query("SELECT 1 FROM face_events WHERE event_id BETWEEN $1 AND $2 LIMIT 1", [v.first_event_id, v.last_event_id]);
       if (still.rowCount === 0) return null;
     }

@@ -424,3 +424,83 @@ Two regressions were found by running these after the change and fixed: first, t
 - Behind a real reverse proxy: that `X-Forwarded-For` is set by a trusted proxy.
 - That the SVG diagrams render in your Markdown viewer (checked in Chrome, and both files parse as well-formed XML; GitHub renders the Mermaid blocks too).
 
+
+---
+
+# Test results: demo data (Stage 6)
+
+All run against a scratch database (`demo_scratch`, its own Postgres container) and a second Qdrant (`face_embeddings_test`), never the real ones. The host port 5432 on the development machine was held by another project's container, so the scratch container used 5433.
+
+## Commands
+
+```bash
+cd app
+npm run demo:seed -- --yes [--seed N] [--days D] [--reset] [--db NAME]   # seed (refuses if demo data exists, unless --reset)
+npm run demo:reset -- --yes [--db NAME]                                   # remove only what the seed created
+BASE_URL=http://localhost:3000 npm run test:demo                          # on a scratch database WITHOUT demo data
+docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_demo_tests.sql
+```
+
+## Full run after the last change
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run lint` / `npx eslint --max-warnings=0 .` | zero warnings |
+| `npm run build` | compiled |
+| `db/test_cases.sql` | 98 / 98 (was 98) |
+| `db/b_register_tests.sql` | 26 / 26 (was 26) |
+| `db/b_reports_tests.sql` | 16 / 16 (was 16) |
+| `db/b_demo_tests.sql` (new) | 10 / 10 |
+| `test:match`, cooldown 3 | 37 / 37 (was 37) |
+| `test:match`, cooldown 0 | 34 / 34 (was 34) |
+| `test:register` | 31 / 31 (was 31) |
+| `test:faces` (real photos, 3 people) | 13 / 13 (was 13) |
+| `test:reports` (`EXPECT_HISTORY_NOTE=1`, after a seed) | 14 / 14 (was 14) |
+| `test:hardening` | 30 / 30 (was 30) |
+| `test:demo` (new) | 42 / 42 |
+
+`test:demo` covers: refusal without `--yes`, on a wrong `--db`, and on existing demo data; seed counts; student and parent logins (bcrypt, `@facetrack.test`); no `face_profiles` rows and no Qdrant points for seeded students; leave in several states; open and resolved violations with `resolved_at` and `resolved_by`; every report function returning more than one row or more than one distinct value; a live student registered and scanned at the gate (real, untracked attendance and gate rows that appear in the reports next to the generated ones); a stranger getting no match; the pages returning 200 without raw errors; review confirm/reject on generated events; reset restoring exactly the starting counts plus the real rows; the same `--seed` giving the same data and another seed different data; `--reset` creating no duplicate logins; a re-seed after the live student picking the next free SRN (`24CS902`). It expects a database without demo data at the start: on one that already has demo data its first checks fail (seen once when it was run by mistake after a seed, then 42/42 after a reset).
+
+## Seeded dataset (default seed 20261027, 45 days, on the sample database)
+
+14 demo students, 13 parent logins (two siblings share one), 3 hostels (one added), 135 roll calls, 900 attendance rows (797 marks while the roll call ran, 103 absent when closing), 875 gate crossings, 1890 face events (database only), 20 leave requests, 116 violations (76 resolved, 40 open). The reset table below gives the database totals before and after.
+
+## Reset proof (`demo:reset -- --yes`, then again)
+
+```
+Removed 2937 tracked rows and what hangs off them:
+  116 violations, 900 attendance marks, 875 gate log rows, 1890 face events, 20 leave requests,
+  135 roll calls, 14 demo students (with their logins), 13 parent logins, 1 camera, 1 gate, 1 hostel
+
+  users                                  42 ->     15
+  students                               20 ->      6
+  parents                                19 ->      6
+  face_profiles (real enrolments)         0 ->      0
+  roll calls                            139 ->      4
+  attendance marks                      909 ->      9
+  gate log rows                         880 ->      5
+  face events                          1903 ->     13
+  leave requests                         24 ->      4
+  violations                            120 ->      4
+  hostels 3 -> 2, gates 4 -> 3, cameras 5 -> 4
+Real face profiles: 0 -> 0 (unchanged, as it must be).
+second run: "There is no generated demo data here. Nothing to do."
+```
+
+The remaining rows are the six sample students' own data from `db/seed.sql`. `face_profiles` is 0 here because this scratch database has no enrolments; with a real enrolled student present, `db/b_demo_tests.sql` and `test:demo` check that the profile, the student, their attendance, gate log, scan and leave survive the reset.
+
+## Checked in real Chrome (headless, 1280 wide, light and dark)
+`/warden`, `/reports` (all 11 charts), `/reports/present` (all 11 slides), `/warden/review`, `/warden/sessions` with the seeded data: no page errors, no empty or single-bar charts. Fixes made while looking: stable hostel colours across charts, top 10 late returns, one-decimal labels on the time-outside chart, top 6 words per source, the bad-lighting week made visible, week labels on the scan-outcome chart shortened.
+
+## Not verified
+- Anything with a real webcam: enrolling and scanning your own face live (needs you; the in-process scan and the HTTP API were tested with photos).
+- The commands on your real database (never touched). Port 5432 on this machine is held by another project's container, so check `DATABASE_URL` before the first run.
+- Print / PDF of the presentation with seeded data (only the earlier PDF check).
+
+## Problems seen when real and generated data mix
+- Closing a real roll call marks every demo student absent and raises violations (they have no faces); these belong to demo students and are removed by the reset.
+- The reports note says "Includes generated demo history" for any range overlapping it, even though real activity is also in the numbers.
+- Review "Reject" on a scan linked to attendance returns 409 (existing limitation); generated scans are arranged so the queue does not contain such events.
+- "Cancelled by student" leave cannot be shown: the app deletes a cancelled request.
+- The generated history is attached to every student present, including the sample ones from `db/seed.sql`; the reset removes it again.

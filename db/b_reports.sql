@@ -285,7 +285,9 @@ $$;
 
 -- @report top_words
 -- Technique: full-text search. Splits violation details and leave reasons into
--- lexemes with to_tsvector('english', ...) and counts the most common ones.
+-- lexemes with to_tsvector('english', ...) and counts them; the 6 most common of EACH source are
+-- listed (row_number() over the source), so the free-text leave reasons are not drowned out by
+-- the fixed wording of the violation details.
 CREATE FUNCTION report_top_words(p_from DATE, p_to DATE, p_hostel INT)
 RETURNS TABLE (word TEXT, source TEXT, occurrences INT)
 LANGUAGE sql STABLE AS $$
@@ -300,12 +302,16 @@ LANGUAGE sql STABLE AS $$
         WHERE l.start_date BETWEEN p_from AND p_to
           AND (p_hostel IS NULL OR st.hostel_id = p_hostel)
     )
-    SELECT u.lexeme::TEXT, t.source, count(*)::INT
-    FROM texts t, LATERAL unnest(to_tsvector('english', COALESCE(t.body, ''))) AS u(lexeme, positions, weights)
-    WHERE u.lexeme ~ '^[a-z]{4,}$'
-    GROUP BY u.lexeme, t.source
-    ORDER BY count(*) DESC, u.lexeme
-    LIMIT 12;
+    SELECT w.word, w.source, w.occurrences
+    FROM (
+        SELECT u.lexeme::TEXT AS word, t.source, count(*)::INT AS occurrences,
+               row_number() OVER (PARTITION BY t.source ORDER BY count(*) DESC, u.lexeme) AS rn
+        FROM texts t, LATERAL unnest(to_tsvector('english', COALESCE(t.body, ''))) AS u(lexeme, positions, weights)
+        WHERE u.lexeme ~ '^[a-z]{4,}$'
+        GROUP BY u.lexeme, t.source
+    ) w
+    WHERE w.rn <= 6
+    ORDER BY w.occurrences DESC, w.word;
 $$;
 -- @end
 
