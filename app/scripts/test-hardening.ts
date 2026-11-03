@@ -119,7 +119,9 @@ async function main() {
     const LEAK = /student \d|parent \d|session \d|Leave request \d|violates|constraint|relation "|column|SQLSTATE|syntax error|duplicate key|integer|\bat \w+ \(/i;
     const decide = (cookie: string, id: number) => api("POST", `/api/leave/${id}/decide`, cookie, { decision: "approved" });
     const probes: [string, Awaited<ReturnType<typeof api>>, number, string | undefined][] = [
-      ["a parent decides another parent's ward's leave (FT033)", await decide(parentC3, 3), 403, DB_ERRORS.FT033.message],
+      // since the database role ft_parent only sees its own children's leave (row-level security), another family's request
+      // is "not found" (404, FT031), not "not your child" (403, FT033): the answer no longer confirms that the id exists
+      ["a parent decides another parent's ward's leave (hidden by row-level security: FT031)", await decide(parentC3, 3), 404, DB_ERRORS.FT031.message],
       ["a second decision on a decided leave (FT032)", await decide(parentC1, 1), 409, DB_ERRORS.FT032.message],
       ["a leave request that does not exist (FT031)", await decide(parentC1, 99999), 404, DB_ERRORS.FT031.message],
     ];

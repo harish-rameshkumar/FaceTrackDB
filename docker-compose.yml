@@ -1,6 +1,7 @@
+# Image versions are pinned (PostgreSQL 16.15, Qdrant 1.19.2) so every machine gets the same behaviour; change them deliberately.
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16.15
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -10,7 +11,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
   qdrant:
-    image: qdrant/qdrant
+    image: qdrant/qdrant:v1.19.2
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
     ports:

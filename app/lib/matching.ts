@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { COLLECTION, getQdrant } from "./qdrant";
+import { COLLECTION, getQdrant, NOT_DEACTIVATED } from "./qdrant";
 
 export type Outcome = "matched" | "low_confidence" | "no_match";
 
@@ -181,7 +181,7 @@ export function combineFrames(verdicts: FrameVerdict[]): ScanDecision {
 
 /** Top 10 stored samples nearest to the embedding, as student similarities. */
 export async function searchFrame(embedding: number[]): Promise<StudentScore[]> {
-  const { points } = await getQdrant().query(COLLECTION, { query: embedding, limit: 10, with_payload: true });
+  const { points } = await getQdrant().query(COLLECTION, { query: embedding, limit: 10, with_payload: true, filter: { must_not: [NOT_DEACTIVATED] } });
   return rankStudents(
     points.map((h) => ({ studentId: Number(h.payload?.student_id), similarity: h.score })), // Cosine: the score is the similarity
   );

@@ -127,6 +127,36 @@ After you have registered that student, a later `demo:seed --reset` suggests the
 
 Things to know: closing a **real** roll call marks every demo student absent (they have no faces) and raises missed-attendance violations for them; those rows belong to demo students and disappear on reset, but avoid closing a roll call during the demo. A leave request cancelled by the student is deleted, not a state, so "cancelled" leave cannot appear in the data. The department is part of the SRN (there is no separate column). The default history is 45 days so two calendar months show in the monthly report.
 
+## Database roles (role-based access control in PostgreSQL)
+
+The five roles are real PostgreSQL roles, not only values in `users.role` (`db/migrations/004_rbac.sql`, mirrored at the end of `db/schema.sql`; tests in `db/rbac_tests.sql`):
+
+| Role | Can do (and nothing else) |
+|---|---|
+| `ft_student` | read own student row, attendance, gate rows, leave and violations; create own leave; cancel own **pending** leave; read the names of own parents |
+| `ft_parent` | read the linked children's rows; decide their leave through `decide_leave` |
+| `ft_warden` | dashboard, search, roll calls, review queue, resolve violations, reports |
+| `ft_security` | the gate: write scans (face events), attendance and gate-log rows |
+| `ft_admin` | staff rights plus register/delete students, face samples, "sign out everywhere" |
+| `ft_app` | the **login role the web app connects as**: not a superuser, no `BYPASSRLS`, no password in any file. It can read what sign-in needs and may `SET ROLE` to any of the five roles |
+
+Everything is `REVOKE`d from `PUBLIC`; password hashes and token versions are readable only by `ft_app` (column privileges). **Row-level security** is on `users`, `students`, `parents`, `student_parent`, `attendance`, `entry_exit_log`, `leave_requests` and `violations`: a student sees only their own rows and a parent only their linked children's, driven by the setting `app.user_id`. No `SECURITY DEFINER` functions are used.
+
+In the app, `withRole(user, fn)` in `app/lib/db.ts` runs one request's queries in **one transaction** after `SET LOCAL ROLE ft_<role>` and `set_config('app.user_id', ...)`. It is used by the leave, violations (read and resolve), history and wards routes. **Not wrapped, so enforced only in the Node code** (they run as `ft_app`, which inherits the three staff roles' rights): the warden pages (dashboard, search, reports, review, roll-call list), the roll-call create/close and review routes, the gate scan (`lib/scan.ts`), registration/deletion/enrolment and the other admin routes, and login/password change (which need `ft_app`'s own rights). Those routes are still guarded by `requireRole`. The staff roles' grants are tested in `db/rbac_tests.sql` but only the student, parent, warden-violation and leave paths are exercised end to end through the role switch.
+
+Setup: `./db/load_all.sh` (or `./db/migrate.sh` on an existing database) creates the roles; set `FT_APP_PASSWORD` before `load_all.sh` to give `ft_app` a password (or run `ALTER ROLE ft_app PASSWORD '...'` yourself), then put `APP_DATABASE_URL=postgresql://ft_app:<password>@localhost:5432/<db>` in `app/.env.local` (see `.env.example`). Without `APP_DATABASE_URL` the app falls back to the owner connection `DATABASE_URL`; the student/parent role switch still applies, but nothing else is then limited. Migrations, the seed, the demo scripts and the SQL tests keep using the owner.
+
+## Limitations (read before relying on this system)
+
+- **Recognition thresholds are uncalibrated guesses** (0.50 match, 0.35 review, 0.08 margin). They have not been measured on real webcam photos; the only evaluation is on augmented copies of one sample photo ([docs/vector-design.md](docs/vector-design.md), sections 5 and 7).
+- **No liveness detection**: a printed photo or a photo on a phone screen can pass.
+- **No CSRF token** (the session cookie is `SameSite=Lax`, HttpOnly, `Secure` in production); no HTTPS configuration is included. The per-address login limit trusts `X-Forwarded-For`, which can be spoofed without a trusted proxy.
+- **The demo history is generated**, not collected. It is labelled in `b_meta` and on the reports page, and `npm run demo:reset -- --yes` removes it.
+- **Not recorded**: when a leave request was *submitted* (so "time from request to decision" cannot be reported; the leave report uses the typical length and the lead time to the start date instead), and what people **type into the search box** (so there is no "top search terms" report).
+- Cancelled leave is deleted, not kept, so "cancelled" cannot appear as a leave state in reports.
+- Database roles protect the routes listed above only; see "Database roles" for what is enforced in Node code alone.
+- InsightFace's pretrained models are licensed for non-commercial research use.
+
 ## Troubleshooting
 
 | Problem | What to check |
@@ -244,9 +274,25 @@ A student's score is the mean of their best two sample similarities. At the gate
 
 ### Tests
 
+### Which database state each test needs
+
+| Suite | Needs | Count (last full run) |
+|---|---|---|
+| `db/test_cases.sql` | **fresh, seed-only** database (`./db/load_all.sh`, nothing else): it assumes the sample data. On a demo-seeded database about 13 of its checks fail for data reasons | 98 |
+| `db/b_register_tests.sql`, `db/b_reports_tests.sql`, `db/b_queries_tests.sql`, `db/rbac_tests.sql` | any loaded database (they build their own fixture, ids 91xx-96xx, and roll back) | 26, 16, 6, 76 |
+| `db/b_demo_tests.sql` | a database with **no demo data** | 10 |
+| `npm run test:match` | fresh seed-only database, `qdrant:reset` then `seed:faces`, a `_test` collection; run once with `SCAN_COOLDOWN_SECONDS=3` and once with `0` | 38 and 35 |
+| `npm run test:register` | scratch database, running server; **no demo data needed** (works either way) | 38 |
+| `npm run test:hardening` | scratch database, `npm run build` first | 30 |
+| `npm run test:reports` | any; set `EXPECT_HISTORY_NOTE=1` after `demo:seed`, `0` without demo data | 14 |
+| `npm run test:demo` | scratch database with **no demo data** (it seeds, checks and resets) | 42 |
+| `npm run test:faces` | fresh database, embedder running, a folder of real photos | 13 |
+
+For the web app under test, start the server with `APP_DATABASE_URL` pointing at the `ft_app` login role; the test scripts themselves use the owner `DATABASE_URL`.
+
 Hardening (fixed error messages, login limits, JWT secret, revocation, page access, leave cancellation, `resolved_at`; 30 checks; needs `npm run build` first because it starts a second copy of the app on port 3299): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:hardening`. SQL: `db/test_cases.sql` now has 98 checks (the extra 27 cover `resolved_at`, `token_version` and the login limit functions).
 
-Registration, deletion, roll calls and password change (HTTP, against a scratch database and a running server; 31 checks): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:register`. The SQL functions: `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_register_tests.sql` (26 checks, rolls back).
+Registration, deletion, roll calls and password change (HTTP, against a scratch database and a running server; 38 checks, including read, update and delete of single face samples): `DATABASE_URL=.../<scratch_db> BASE_URL=http://localhost:3000 npm run test:register`. The SQL functions: `docker compose exec -T postgres psql -U $POSTGRES_USER -d <scratch_db> < db/b_register_tests.sql` (26 checks, rolls back).
 
 Demo data: SQL `db/b_demo_tests.sql` (10 checks, rolls back) and `BASE_URL=http://localhost:3000 npm run test:demo` (scratch database only; seeds, checks and resets).
 

@@ -194,6 +194,51 @@ WHERE direction = 'OUT'
 ORDER BY left_at;
 
 -- ---------------------------------------------------------------------
+-- PART 3b: RECURSIVE CTE
+-- ---------------------------------------------------------------------
+
+-- V5. Every maximal run of consecutive absent roll-call days per student. WITH RECURSIVE
+--     starts a run on an absent day whose previous calendar day is not absent for that student,
+--     and extends it one day at a time while the next day is also absent. A run is complete
+--     when no absent day follows it. Read-only. Days without a roll call break a run, because
+--     they are not "absent" days.
+CREATE OR REPLACE VIEW v_absence_runs AS
+WITH RECURSIVE absent_days AS (
+    SELECT DISTINCT a.student_id, s.session_date AS day
+    FROM attendance a
+    JOIN attendance_sessions s ON s.session_id = a.session_id
+    WHERE a.status = 'absent'
+), chain AS (
+    -- anchor: the first absent day of a run
+    SELECT d.student_id, d.day AS run_start, d.day AS run_end, 1 AS days
+    FROM absent_days d
+    WHERE NOT EXISTS (SELECT 1 FROM absent_days p
+                      WHERE p.student_id = d.student_id AND p.day = d.day - 1)
+    UNION ALL
+    -- recursive step: extend the run by the next consecutive absent day
+    SELECT c.student_id, c.run_start, d.day, c.days + 1
+    FROM chain c
+    JOIN absent_days d ON d.student_id = c.student_id AND d.day = c.run_end + 1
+)
+SELECT c.student_id, c.run_start, c.run_end, c.days
+FROM chain c
+WHERE NOT EXISTS (SELECT 1 FROM absent_days n
+                  WHERE n.student_id = c.student_id AND n.day = c.run_end + 1);
+
+\echo
+\echo '=== RECURSIVE 1. Longest run of consecutive absent roll-call days per student (v_absence_runs) ==='
+SELECT s.roll_no, s.name, h.name AS hostel,
+       max(r.days)                                         AS longest_run_days,
+       (array_agg(r.run_start ORDER BY r.days DESC, r.run_start))[1] AS run_started,
+       count(*)                                            AS runs
+FROM v_absence_runs r
+JOIN students s ON s.student_id = r.student_id
+JOIN hostels  h ON h.hostel_id  = s.hostel_id
+GROUP BY s.student_id, s.roll_no, s.name, h.name
+ORDER BY longest_run_days DESC, s.roll_no
+LIMIT 10;
+
+-- ---------------------------------------------------------------------
 -- PART 4: LABELLED DML EXAMPLES
 -- ---------------------------------------------------------------------
 

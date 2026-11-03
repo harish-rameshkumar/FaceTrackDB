@@ -61,6 +61,12 @@ echo "== db/demo_passwords.sql" >&2
 psql_q < db/demo_passwords.sql >/dev/null
 ./db/load_b.sh
 
+# Optional: give the web app's login role ft_app a password (never kept in a file). Without it ft_app cannot log in.
+if [ -n "${FT_APP_PASSWORD:-}" ]; then
+  printf "ALTER ROLE ft_app PASSWORD :'pw';\n" | docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -v pw="$FT_APP_PASSWORD" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+  echo "== password set for ft_app" >&2
+fi
+
 cat >&2 <<'EOF'
 
 Done. The database is rebuilt with the schema, seed data, migrations, demo passwords and the

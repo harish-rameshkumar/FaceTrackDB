@@ -9,6 +9,13 @@ export const COLLECTION = process.env.QDRANT_COLLECTION?.trim() || "face_embeddi
 export const VECTOR_SIZE = 512;
 export const DISTANCE = "Cosine";
 
+/**
+ * A sample can be deactivated by an admin (payload `active: false`, see lib/faces.ts). Searches
+ * must ignore those points. Points written before this field existed have no `active` key, so the
+ * filter EXCLUDES the ones explicitly set to false instead of requiring `active: true`.
+ */
+export const NOT_DEACTIVATED = { key: "active", match: { value: false } } as const;
+
 const globalForQdrant = globalThis as unknown as { __ftQdrant?: QdrantClient };
 
 export function getQdrant(): QdrantClient {

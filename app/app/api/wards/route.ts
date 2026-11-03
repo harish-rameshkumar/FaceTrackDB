@@ -1,4 +1,4 @@
-import { getPool } from "@/lib/db";
+import { withRole } from "@/lib/db";
 import { requireRole, authErrorResponse } from "@/lib/auth";
 import { dbErrorResponse } from "@/lib/api-helpers";
 
@@ -8,20 +8,22 @@ import { dbErrorResponse } from "@/lib/api-helpers";
 export async function GET() {
   try {
     const user = await requireRole(["parent"]);
-    if (!user.parentId) {
-      return Response.json({ error: "Your account is not linked to a parent record" }, { status: 403 });
-    }
-    const { rows } = await getPool().query(
-      `SELECT s.student_id, s.name, s.roll_no, h.name AS hostel, sp.relation
-       FROM student_parent sp
-       JOIN students s ON s.student_id = sp.student_id
-       JOIN hostels h ON h.hostel_id = s.hostel_id
-       WHERE sp.parent_id = $1
-       ORDER BY s.name`,
-      [user.parentId],
-    );
-    return Response.json({
-      wards: rows.map((r) => ({ studentId: r.student_id, name: r.name, rollNo: r.roll_no, hostel: r.hostel, relation: r.relation })),
+    return await withRole(user, async (db) => {
+      if (!user.parentId) {
+        return Response.json({ error: "Your account is not linked to a parent record" }, { status: 403 });
+      }
+      const { rows } = await db.query(
+        `SELECT s.student_id, s.name, s.roll_no, h.name AS hostel, sp.relation
+         FROM student_parent sp
+         JOIN students s ON s.student_id = sp.student_id
+         JOIN hostels h ON h.hostel_id = s.hostel_id
+         WHERE sp.parent_id = $1
+         ORDER BY s.name`,
+        [user.parentId],
+      );
+      return Response.json({
+        wards: rows.map((r) => ({ studentId: r.student_id, name: r.name, rollNo: r.roll_no, hostel: r.hostel, relation: r.relation })),
+      });
     });
   } catch (e) {
     const r = authErrorResponse(e) ?? dbErrorResponse(e);
