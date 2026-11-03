@@ -5,6 +5,8 @@ This folder is the Next.js 16 application (pages, API routes, scripts) for FaceT
 - **What the project is, how to set it up, demo accounts and a demo script:** [../README.md](../README.md)
 - **How the pieces fit together:** [../docs/architecture.md](../docs/architecture.md)
 - **Face recognition design and thresholds:** [../docs/vector-design.md](../docs/vector-design.md)
+- **Database roles, row-level security and what is enforced only in Node code:** [../README.md](../README.md#database-roles-role-based-access-control-in-postgresql), `lib/db.ts` (`withRole`)
+- **ER model:** [../docs/er-model.md](../docs/er-model.md)
 - **Tests and their results:** [../docs/test-results.md](../docs/test-results.md)
 
 Next.js 16 differs from older versions (see [AGENTS.md](AGENTS.md)): database reads must run in a dynamic context, `searchParams` is a Promise, and `export const dynamic` is not allowed.
