@@ -1,124 +1,158 @@
-// ===== PEOPLE (blue) =====
-Table users [headercolor: #2E5C8A] {
-  user_id int [pk, increment]
-  email varchar(255) [not null, unique]
-  password_hash varchar(255) [not null]
-  role varchar(20) [not null, note: 'student, parent, warden, security, admin']
-  created_at timestamp [not null, default: `now()`]
-}
-
-Table students [headercolor: #2E5C8A] {
-  student_id int [pk, increment]
-  user_id int [not null, unique, ref: - users.user_id]
-  roll_no varchar(20) [not null, unique]
-  name varchar(100) [not null]
-  hostel_id int [not null, ref: > hostels.hostel_id]
-  room_no varchar(10)
-}
-
-Table parents [headercolor: #2E5C8A] {
-  parent_id int [pk, increment]
-  user_id int [not null, unique, ref: - users.user_id]
-  name varchar(100) [not null]
-  phone varchar(15)
-}
-
-Table student_parent [headercolor: #2E5C8A] {
-  student_id int [not null, ref: > students.student_id]
-  parent_id int [not null, ref: > parents.parent_id]
-  relation varchar(20)
-  indexes {
-    (student_id, parent_id) [pk]
-  }
-}
-
-// ===== HOSTEL AND FACE RECOGNITION (green) =====
-Table hostels [headercolor: #2F7D5B] {
-  hostel_id int [pk, increment]
-  name varchar(100) [not null, unique]
-}
-
-Table gates [headercolor: #2F7D5B] {
-  gate_id int [pk, increment]
-  hostel_id int [not null, ref: > hostels.hostel_id]
-  name varchar(50) [not null]
-}
-
-Table cameras [headercolor: #2F7D5B] {
-  camera_id int [pk, increment]
-  gate_id int [not null, ref: > gates.gate_id]
-  location varchar(100)
-  status varchar(15) [not null, note: 'active, inactive']
-}
-
-Table face_profiles [headercolor: #2F7D5B] {
-  profile_id int [pk, increment]
-  student_id int [not null, ref: > students.student_id]
-  qdrant_point_id uuid [not null, unique, note: 'id of the vector stored in Qdrant']
-  enrolled_at timestamp [not null, default: `now()`]
-}
-
-Table face_events [headercolor: #2F7D5B] {
-  event_id int [pk, increment]
-  camera_id int [not null, ref: > cameras.camera_id]
-  student_id int [ref: > students.student_id, note: 'null when no match']
-  confidence numeric(4,3)
-  outcome varchar(20) [not null, note: 'matched, low_confidence, no_match']
-  event_time timestamp [not null, default: `now()`]
-  reviewed_by int [ref: > users.user_id, note: 'warden who reviewed a low-confidence event']
-}
-
-// ===== ACTIVITY AND RULES (orange) =====
-Table attendance_sessions [headercolor: #B7692B] {
-  session_id int [pk, increment]
-  hostel_id int [not null, ref: > hostels.hostel_id]
-  session_date date [not null]
-  start_time time [not null]
-  end_time time [not null]
-  indexes {
-    (hostel_id, session_date, start_time) [unique]
-  }
-}
+// Generated from the live schema (db/schema.sql + migrations + b_*.sql). Composite foreign keys are listed at the bottom.
+// Paste into dbdiagram.io. See docs/er-model.md for the ER analysis.
 
 Table attendance [headercolor: #B7692B] {
-  session_id int [not null, ref: > attendance_sessions.session_id]
-  student_id int [not null, ref: > students.student_id]
-  event_id int [ref: > face_events.event_id, note: 'null if marked manually']
-  status varchar(20) [not null, note: 'present, absent, low_confidence']
+  session_id int [ref: > attendance_sessions.session_id]
+  student_id int [ref: > students.student_id]
+  event_id int
+  status varchar(20) [not null]
   marked_at timestamp
   indexes {
     (session_id, student_id) [pk]
   }
 }
 
+Table attendance_sessions [headercolor: #B7692B] {
+  session_id int [pk]
+  hostel_id int [not null, ref: > hostels.hostel_id]
+  session_date date [not null]
+  start_time time [not null]
+  end_time time [not null]
+}
+
+Table b_consents [headercolor: #2E5C8A] {
+  student_id int [pk, ref: > students.student_id]
+  consented_at timestamp [not null]
+  recorded_by int [ref: > users.user_id]
+}
+
+Table b_demo_rows [headercolor: #6B6B6B] {
+  kind text
+  row_id int
+  indexes {
+    (kind, row_id) [pk]
+  }
+}
+
+Table b_meta [headercolor: #6B6B6B] {
+  key text [pk]
+  value text [not null]
+  updated_at timestamp [not null]
+}
+
+Table cameras [headercolor: #2F7D5B] {
+  camera_id int [pk]
+  gate_id int [not null, ref: > gates.gate_id]
+  location varchar(100)
+  status varchar(15) [not null]
+}
+
 Table entry_exit_log [headercolor: #B7692B] {
-  log_id int [pk, increment]
+  log_id int [pk]
   student_id int [not null, ref: > students.student_id]
   gate_id int [not null, ref: > gates.gate_id]
-  event_id int [ref: > face_events.event_id]
-  direction varchar(3) [not null, note: 'IN or OUT']
-  event_time timestamp [not null, default: `now()`]
+  event_id int
+  direction varchar(3) [not null]
+  event_time timestamp [not null]
+}
+
+Table face_events [headercolor: #1F7A7A] {
+  event_id int [pk]
+  camera_id int [not null, ref: > cameras.camera_id]
+  student_id int [ref: > students.student_id]
+  confidence numeric(4,3)
+  outcome varchar(20) [not null]
+  event_time timestamp [not null]
+  reviewed_by int [ref: > users.user_id]
+}
+
+Table face_profiles [headercolor: #1F7A7A] {
+  profile_id int [pk]
+  student_id int [not null, ref: > students.student_id]
+  qdrant_point_id uuid [not null]
+  enrolled_at timestamp [not null]
+}
+
+Table gates [headercolor: #2F7D5B] {
+  gate_id int [pk]
+  hostel_id int [not null, ref: > hostels.hostel_id]
+  name varchar(50) [not null]
+}
+
+Table hostels [headercolor: #2F7D5B] {
+  hostel_id int [pk]
+  name varchar(100) [not null]
 }
 
 Table leave_requests [headercolor: #B7692B] {
-  leave_id int [pk, increment]
+  leave_id int [pk]
   student_id int [not null, ref: > students.student_id]
   start_date date [not null]
   end_date date [not null]
   reason text
-  status varchar(15) [not null, note: 'pending, approved, rejected']
-  decided_by int [ref: > parents.parent_id]
+  status varchar(15) [not null]
+  decided_by int
   decided_at timestamp
+  reason_tsv tsvector
+}
+
+Table login_attempts [headercolor: #6B6B6B] {
+  attempt_id bigint [pk]
+  email varchar(255) [not null]
+  ip varchar(64) [not null]
+  succeeded boolean [not null]
+  attempted_at timestamp [not null]
+}
+
+Table parents [headercolor: #2E5C8A] {
+  parent_id int [pk]
+  user_id int [not null, ref: > users.user_id]
+  name varchar(100) [not null]
+  phone varchar(15)
+}
+
+Table student_parent [headercolor: #2E5C8A] {
+  student_id int [ref: > students.student_id]
+  parent_id int [ref: > parents.parent_id]
+  relation varchar(20)
+  indexes {
+    (student_id, parent_id) [pk]
+  }
+}
+
+Table students [headercolor: #2E5C8A] {
+  student_id int [pk]
+  user_id int [not null, ref: > users.user_id]
+  roll_no varchar(20) [not null]
+  name varchar(100) [not null]
+  hostel_id int [not null, ref: > hostels.hostel_id]
+  room_no varchar(10)
+}
+
+Table users [headercolor: #2E5C8A] {
+  user_id int [pk]
+  email varchar(255) [not null]
+  password_hash varchar(255) [not null]
+  role varchar(20) [not null]
+  created_at timestamp [not null]
+  token_version int [not null]
 }
 
 Table violations [headercolor: #A33A3A] {
-  violation_id int [pk, increment]
+  violation_id int [pk]
   student_id int [not null, ref: > students.student_id]
-  log_id int [ref: > entry_exit_log.log_id]
+  log_id int
   session_id int [ref: > attendance_sessions.session_id]
-  type varchar(30) [not null, note: 'late_return, missed_attendance, no_leave']
+  type varchar(30) [not null]
   details text
-  raised_at timestamp [not null, default: `now()`]
-  status varchar(15) [not null, note: 'open, resolved']
+  raised_at timestamp [not null]
+  status varchar(15) [not null]
   resolved_by int [ref: > users.user_id]
+  resolved_at timestamp
+  details_tsv tsvector
 }
+
+Ref attendance_event_fk: attendance.(event_id, student_id) > face_events.(event_id, student_id)
+Ref log_event_fk: entry_exit_log.(event_id, student_id) > face_events.(event_id, student_id)
+Ref leave_decider_is_parent: leave_requests.(student_id, decided_by) > student_parent.(student_id, parent_id)
+Ref violations_log_fk: violations.(log_id, student_id) > entry_exit_log.(log_id, student_id)

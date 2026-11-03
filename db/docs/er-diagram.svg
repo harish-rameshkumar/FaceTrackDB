@@ -1,0 +1,441 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2230" height="894" viewBox="0 0 2230 894" font-family="Helvetica, Arial, sans-serif">
+<rect width="2230" height="894" fill="#ffffff"/>
+<text x="40" y="38" font-size="24" font-weight="700" fill="#111">FaceTrackDB: relational schema (18 tables, from the live PostgreSQL 16 database)</text>
+<path d="M1420.0,327.5 L1318.0,327.5 L1318.0,551.5 L1270.0,551.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>attendance.event_id,student_id -> face_events</title></path>
+<path d="M1730.0,285.5 L1752.0,285.5 L1752.0,110.5 L1730.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>attendance.session_id -> attendance_sessions</title></path>
+<path d="M1420.0,306.5 L1327.0,306.5 L1327.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>attendance.student_id -> students</title></path>
+<path d="M1420.0,131.5 L1336.0,131.5 L1336.0,306.5 L350.0,306.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>attendance_sessions.hostel_id -> hostels</title></path>
+<path d="M500.0,635.5 L398.0,635.5 L398.0,110.5 L350.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>b_consents.recorded_by -> users</title></path>
+<path d="M810.0,593.5 L832.0,593.5 L832.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>b_consents.student_id -> students</title></path>
+<path d="M1270.0,264.5 L1292.0,264.5 L1292.0,110.5 L1270.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>cameras.gate_id -> gates</title></path>
+<path d="M1420.0,502.5 L1345.0,502.5 L1345.0,110.5 L1270.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>entry_exit_log.gate_id -> gates</title></path>
+<path d="M1420.0,481.5 L1354.0,481.5 L1354.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>entry_exit_log.student_id -> students</title></path>
+<path d="M1420.0,523.5 L1363.0,523.5 L1363.0,551.5 L1270.0,551.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>entry_exit_log.event_id,student_id -> face_events</title></path>
+<path d="M1270.0,572.5 L1302.0,572.5 L1302.0,243.5 L1270.0,243.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>face_events.camera_id -> cameras</title></path>
+<path d="M960.0,677.5 L858.0,677.5 L858.0,110.5 L350.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>face_events.reviewed_by -> users</title></path>
+<path d="M960.0,593.5 L867.0,593.5 L867.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>face_events.student_id -> students</title></path>
+<path d="M960.0,418.5 L876.0,418.5 L876.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>face_profiles.student_id -> students</title></path>
+<path d="M960.0,131.5 L885.0,131.5 L885.0,306.5 L350.0,306.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>gates.hostel_id -> hostels</title></path>
+<path d="M1880.0,131.5 L1778.0,131.5 L1778.0,460.5 L810.0,460.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>leave_requests.student_id,decided_by -> student_parent</title></path>
+<path d="M1880.0,131.5 L1787.0,131.5 L1787.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>leave_requests.student_id -> students</title></path>
+<path d="M500.0,327.5 L407.0,327.5 L407.0,110.5 L350.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>parents.user_id -> users</title></path>
+<path d="M810.0,481.5 L842.0,481.5 L842.0,306.5 L810.0,306.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>student_parent.parent_id -> parents</title></path>
+<path d="M810.0,460.5 L852.0,460.5 L852.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>student_parent.student_id -> students</title></path>
+<path d="M500.0,194.5 L416.0,194.5 L416.0,306.5 L350.0,306.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>students.hostel_id -> hostels</title></path>
+<path d="M500.0,131.5 L425.0,131.5 L425.0,110.5 L350.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>students.user_id -> users</title></path>
+<path d="M1880.0,411.5 L1796.0,411.5 L1796.0,460.5 L1730.0,460.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>violations.log_id,student_id -> entry_exit_log</title></path>
+<path d="M1880.0,537.5 L1805.0,537.5 L1805.0,110.5 L350.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>violations.resolved_by -> users</title></path>
+<path d="M1880.0,432.5 L1814.0,432.5 L1814.0,110.5 L1730.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>violations.session_id -> attendance_sessions</title></path>
+<path d="M1880.0,390.5 L1823.0,390.5 L1823.0,110.5 L810.0,110.5" fill="none" stroke="#7b8190" stroke-width="1.3"><title>violations.student_id -> students</title></path>
+<path d="M1406.0,327.5 L1420.0,321.5 M1406.0,327.5 L1420.0,333.5 M1406.0,327.5 L1420.0,327.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1280.0,545.5 L1280.0,557.5 M1284.0,545.5 L1284.0,557.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1744.0,285.5 L1730.0,279.5 M1744.0,285.5 L1730.0,291.5 M1744.0,285.5 L1730.0,285.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1740.0,104.5 L1740.0,116.5 M1744.0,104.5 L1744.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1406.0,306.5 L1420.0,300.5 M1406.0,306.5 L1420.0,312.5 M1406.0,306.5 L1420.0,306.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1406.0,131.5 L1420.0,125.5 M1406.0,131.5 L1420.0,137.5 M1406.0,131.5 L1420.0,131.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,300.5 L360.0,312.5 M364.0,300.5 L364.0,312.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M486.0,635.5 L500.0,629.5 M486.0,635.5 L500.0,641.5 M486.0,635.5 L500.0,635.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,104.5 L360.0,116.5 M364.0,104.5 L364.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M824.0,593.5 L810.0,587.5 M824.0,593.5 L810.0,599.5 M824.0,593.5 L810.0,593.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1284.0,264.5 L1270.0,258.5 M1284.0,264.5 L1270.0,270.5 M1284.0,264.5 L1270.0,264.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1280.0,104.5 L1280.0,116.5 M1284.0,104.5 L1284.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1406.0,502.5 L1420.0,496.5 M1406.0,502.5 L1420.0,508.5 M1406.0,502.5 L1420.0,502.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1280.0,104.5 L1280.0,116.5 M1284.0,104.5 L1284.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1406.0,481.5 L1420.0,475.5 M1406.0,481.5 L1420.0,487.5 M1406.0,481.5 L1420.0,481.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1406.0,523.5 L1420.0,517.5 M1406.0,523.5 L1420.0,529.5 M1406.0,523.5 L1420.0,523.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1280.0,545.5 L1280.0,557.5 M1284.0,545.5 L1284.0,557.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1284.0,572.5 L1270.0,566.5 M1284.0,572.5 L1270.0,578.5 M1284.0,572.5 L1270.0,572.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1280.0,237.5 L1280.0,249.5 M1284.0,237.5 L1284.0,249.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M946.0,677.5 L960.0,671.5 M946.0,677.5 L960.0,683.5 M946.0,677.5 L960.0,677.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,104.5 L360.0,116.5 M364.0,104.5 L364.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M946.0,593.5 L960.0,587.5 M946.0,593.5 L960.0,599.5 M946.0,593.5 L960.0,593.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M946.0,418.5 L960.0,412.5 M946.0,418.5 L960.0,424.5 M946.0,418.5 L960.0,418.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M946.0,131.5 L960.0,125.5 M946.0,131.5 L960.0,137.5 M946.0,131.5 L960.0,131.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,300.5 L360.0,312.5 M364.0,300.5 L364.0,312.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1866.0,131.5 L1880.0,125.5 M1866.0,131.5 L1880.0,137.5 M1866.0,131.5 L1880.0,131.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,454.5 L820.0,466.5 M824.0,454.5 L824.0,466.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1866.0,131.5 L1880.0,125.5 M1866.0,131.5 L1880.0,137.5 M1866.0,131.5 L1880.0,131.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M486.0,327.5 L500.0,321.5 M486.0,327.5 L500.0,333.5 M486.0,327.5 L500.0,327.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,104.5 L360.0,116.5 M364.0,104.5 L364.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M824.0,481.5 L810.0,475.5 M824.0,481.5 L810.0,487.5 M824.0,481.5 L810.0,481.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,300.5 L820.0,312.5 M824.0,300.5 L824.0,312.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M824.0,460.5 L810.0,454.5 M824.0,460.5 L810.0,466.5 M824.0,460.5 L810.0,460.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M486.0,194.5 L500.0,188.5 M486.0,194.5 L500.0,200.5 M486.0,194.5 L500.0,194.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,300.5 L360.0,312.5 M364.0,300.5 L364.0,312.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M486.0,131.5 L500.0,125.5 M486.0,131.5 L500.0,137.5 M486.0,131.5 L500.0,131.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,104.5 L360.0,116.5 M364.0,104.5 L364.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1866.0,411.5 L1880.0,405.5 M1866.0,411.5 L1880.0,417.5 M1866.0,411.5 L1880.0,411.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1740.0,454.5 L1740.0,466.5 M1744.0,454.5 L1744.0,466.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1866.0,537.5 L1880.0,531.5 M1866.0,537.5 L1880.0,543.5 M1866.0,537.5 L1880.0,537.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M360.0,104.5 L360.0,116.5 M364.0,104.5 L364.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1866.0,432.5 L1880.0,426.5 M1866.0,432.5 L1880.0,438.5 M1866.0,432.5 L1880.0,432.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1740.0,104.5 L1740.0,116.5 M1744.0,104.5 L1744.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M1866.0,390.5 L1880.0,384.5 M1866.0,390.5 L1880.0,396.5 M1866.0,390.5 L1880.0,390.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<path d="M820.0,104.5 L820.0,116.5 M824.0,104.5 L824.0,116.5" stroke="#454b57" stroke-width="1.4" fill="none"/>
+<rect x="40" y="70" width="310" height="162" rx="5" fill="#ffffff" stroke="#2E5C8A" stroke-width="1.6"/>
+<path d="M40,75 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2E5C8A"/>
+<text x="50" y="90" font-size="14" font-weight="700" fill="#ffffff">users</text>
+<text x="48" y="115" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="92" y="115" font-size="12.5" font-weight="700" fill="#111">user_id</text>
+<text x="342" y="115" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="41" y="121" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="136" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="136" font-size="12.5" font-weight="400" fill="#111">email</text>
+<text x="342" y="136" font-size="11.5" text-anchor="end" fill="#444">varchar(255) NN</text>
+<text x="48" y="157" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="157" font-size="12.5" font-weight="400" fill="#111">password_hash</text>
+<text x="342" y="157" font-size="11.5" text-anchor="end" fill="#444">varchar(255) NN</text>
+<rect x="41" y="163" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="178" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="178" font-size="12.5" font-weight="400" fill="#111">role</text>
+<text x="342" y="178" font-size="11.5" text-anchor="end" fill="#444">varchar(20) NN</text>
+<text x="48" y="199" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="199" font-size="12.5" font-weight="400" fill="#111">created_at</text>
+<text x="342" y="199" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<rect x="41" y="205" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="220" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="220" font-size="12.5" font-weight="400" fill="#111">token_version</text>
+<text x="342" y="220" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<rect x="40" y="266" width="310" height="78" rx="5" fill="#ffffff" stroke="#2F7D5B" stroke-width="1.6"/>
+<path d="M40,271 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2F7D5B"/>
+<text x="50" y="286" font-size="14" font-weight="700" fill="#ffffff">hostels</text>
+<text x="48" y="311" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="92" y="311" font-size="12.5" font-weight="700" fill="#111">hostel_id</text>
+<text x="342" y="311" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="41" y="317" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="332" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="332" font-size="12.5" font-weight="400" fill="#111">name</text>
+<text x="342" y="332" font-size="11.5" text-anchor="end" fill="#444">varchar(100) NN</text>
+<rect x="40" y="378" width="310" height="141" rx="5" fill="#ffffff" stroke="#6B6B6B" stroke-width="1.6"/>
+<path d="M40,383 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#6B6B6B"/>
+<text x="50" y="398" font-size="14" font-weight="700" fill="#ffffff">login_attempts</text>
+<text x="48" y="423" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="92" y="423" font-size="12.5" font-weight="700" fill="#111">attempt_id</text>
+<text x="342" y="423" font-size="11.5" text-anchor="end" fill="#444">bigint</text>
+<rect x="41" y="429" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="444" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="444" font-size="12.5" font-weight="400" fill="#111">email</text>
+<text x="342" y="444" font-size="11.5" text-anchor="end" fill="#444">varchar(255) NN</text>
+<text x="48" y="465" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="465" font-size="12.5" font-weight="400" fill="#111">ip</text>
+<text x="342" y="465" font-size="11.5" text-anchor="end" fill="#444">varchar(64) NN</text>
+<rect x="41" y="471" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="486" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="486" font-size="12.5" font-weight="400" fill="#111">succeeded</text>
+<text x="342" y="486" font-size="11.5" text-anchor="end" fill="#444">boolean NN</text>
+<text x="48" y="507" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="507" font-size="12.5" font-weight="400" fill="#111">attempted_at</text>
+<text x="342" y="507" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<rect x="40" y="553" width="310" height="99" rx="5" fill="#ffffff" stroke="#6B6B6B" stroke-width="1.6"/>
+<path d="M40,558 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#6B6B6B"/>
+<text x="50" y="573" font-size="14" font-weight="700" fill="#ffffff">b_meta</text>
+<text x="48" y="598" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="92" y="598" font-size="12.5" font-weight="700" fill="#111">key</text>
+<text x="342" y="598" font-size="11.5" text-anchor="end" fill="#444">text</text>
+<rect x="41" y="604" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="619" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="619" font-size="12.5" font-weight="400" fill="#111">value</text>
+<text x="342" y="619" font-size="11.5" text-anchor="end" fill="#444">text NN</text>
+<text x="48" y="640" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="92" y="640" font-size="12.5" font-weight="400" fill="#111">updated_at</text>
+<text x="342" y="640" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<rect x="40" y="686" width="310" height="78" rx="5" fill="#ffffff" stroke="#6B6B6B" stroke-width="1.6"/>
+<path d="M40,691 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#6B6B6B"/>
+<text x="50" y="706" font-size="14" font-weight="700" fill="#ffffff">b_demo_rows</text>
+<text x="48" y="731" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="92" y="731" font-size="12.5" font-weight="700" fill="#111">kind</text>
+<text x="342" y="731" font-size="11.5" text-anchor="end" fill="#444">text</text>
+<rect x="41" y="737" width="308" height="21" fill="#f3f5f8"/>
+<text x="48" y="752" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="92" y="752" font-size="12.5" font-weight="700" fill="#111">row_id</text>
+<text x="342" y="752" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="500" y="70" width="310" height="162" rx="5" fill="#ffffff" stroke="#2E5C8A" stroke-width="1.6"/>
+<path d="M500,75 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2E5C8A"/>
+<text x="510" y="90" font-size="14" font-weight="700" fill="#ffffff">students</text>
+<text x="508" y="115" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="552" y="115" font-size="12.5" font-weight="700" fill="#111">student_id</text>
+<text x="802" y="115" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="501" y="121" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="136" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="552" y="136" font-size="12.5" font-weight="400" fill="#111">user_id</text>
+<text x="802" y="136" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="508" y="157" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="157" font-size="12.5" font-weight="400" fill="#111">roll_no</text>
+<text x="802" y="157" font-size="11.5" text-anchor="end" fill="#444">varchar(20) NN</text>
+<rect x="501" y="163" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="178" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="178" font-size="12.5" font-weight="400" fill="#111">name</text>
+<text x="802" y="178" font-size="11.5" text-anchor="end" fill="#444">varchar(100) NN</text>
+<text x="508" y="199" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="552" y="199" font-size="12.5" font-weight="400" fill="#111">hostel_id</text>
+<text x="802" y="199" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<rect x="501" y="205" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="220" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="220" font-size="12.5" font-weight="400" fill="#111">room_no</text>
+<text x="802" y="220" font-size="11.5" text-anchor="end" fill="#444">varchar(10)</text>
+<rect x="500" y="266" width="310" height="120" rx="5" fill="#ffffff" stroke="#2E5C8A" stroke-width="1.6"/>
+<path d="M500,271 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2E5C8A"/>
+<text x="510" y="286" font-size="14" font-weight="700" fill="#ffffff">parents</text>
+<text x="508" y="311" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="552" y="311" font-size="12.5" font-weight="700" fill="#111">parent_id</text>
+<text x="802" y="311" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="501" y="317" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="332" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="552" y="332" font-size="12.5" font-weight="400" fill="#111">user_id</text>
+<text x="802" y="332" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="508" y="353" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="353" font-size="12.5" font-weight="400" fill="#111">name</text>
+<text x="802" y="353" font-size="11.5" text-anchor="end" fill="#444">varchar(100) NN</text>
+<rect x="501" y="359" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="374" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="374" font-size="12.5" font-weight="400" fill="#111">phone</text>
+<text x="802" y="374" font-size="11.5" text-anchor="end" fill="#444">varchar(15)</text>
+<rect x="500" y="420" width="310" height="99" rx="5" fill="#ffffff" stroke="#2E5C8A" stroke-width="1.6"/>
+<path d="M500,425 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2E5C8A"/>
+<text x="510" y="440" font-size="14" font-weight="700" fill="#ffffff">student_parent</text>
+<text x="508" y="465" font-size="11" font-weight="700" fill="#8a4b00">PK FK</text>
+<text x="552" y="465" font-size="12.5" font-weight="700" fill="#111">student_id</text>
+<text x="802" y="465" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="501" y="471" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="486" font-size="11" font-weight="700" fill="#8a4b00">PK FK</text>
+<text x="552" y="486" font-size="12.5" font-weight="700" fill="#111">parent_id</text>
+<text x="802" y="486" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<text x="508" y="507" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="507" font-size="12.5" font-weight="400" fill="#111">relation</text>
+<text x="802" y="507" font-size="11.5" text-anchor="end" fill="#444">varchar(20)</text>
+<rect x="500" y="553" width="310" height="99" rx="5" fill="#ffffff" stroke="#2E5C8A" stroke-width="1.6"/>
+<path d="M500,558 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2E5C8A"/>
+<text x="510" y="573" font-size="14" font-weight="700" fill="#ffffff">b_consents</text>
+<text x="508" y="598" font-size="11" font-weight="700" fill="#8a4b00">PK FK</text>
+<text x="552" y="598" font-size="12.5" font-weight="700" fill="#111">student_id</text>
+<text x="802" y="598" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="501" y="604" width="308" height="21" fill="#f3f5f8"/>
+<text x="508" y="619" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="552" y="619" font-size="12.5" font-weight="400" fill="#111">consented_at</text>
+<text x="802" y="619" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<text x="508" y="640" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="552" y="640" font-size="12.5" font-weight="400" fill="#111">recorded_by</text>
+<text x="802" y="640" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="960" y="70" width="310" height="99" rx="5" fill="#ffffff" stroke="#2F7D5B" stroke-width="1.6"/>
+<path d="M960,75 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2F7D5B"/>
+<text x="970" y="90" font-size="14" font-weight="700" fill="#ffffff">gates</text>
+<text x="968" y="115" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1012" y="115" font-size="12.5" font-weight="700" fill="#111">gate_id</text>
+<text x="1262" y="115" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="961" y="121" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="136" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1012" y="136" font-size="12.5" font-weight="400" fill="#111">hostel_id</text>
+<text x="1262" y="136" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="968" y="157" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="157" font-size="12.5" font-weight="400" fill="#111">name</text>
+<text x="1262" y="157" font-size="11.5" text-anchor="end" fill="#444">varchar(50) NN</text>
+<rect x="960" y="203" width="310" height="120" rx="5" fill="#ffffff" stroke="#2F7D5B" stroke-width="1.6"/>
+<path d="M960,208 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#2F7D5B"/>
+<text x="970" y="223" font-size="14" font-weight="700" fill="#ffffff">cameras</text>
+<text x="968" y="248" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1012" y="248" font-size="12.5" font-weight="700" fill="#111">camera_id</text>
+<text x="1262" y="248" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="961" y="254" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="269" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1012" y="269" font-size="12.5" font-weight="400" fill="#111">gate_id</text>
+<text x="1262" y="269" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="968" y="290" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="290" font-size="12.5" font-weight="400" fill="#111">location</text>
+<text x="1262" y="290" font-size="11.5" text-anchor="end" fill="#444">varchar(100)</text>
+<rect x="961" y="296" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="311" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="311" font-size="12.5" font-weight="400" fill="#111">status</text>
+<text x="1262" y="311" font-size="11.5" text-anchor="end" fill="#444">varchar(15) NN</text>
+<rect x="960" y="357" width="310" height="120" rx="5" fill="#ffffff" stroke="#1F7A7A" stroke-width="1.6"/>
+<path d="M960,362 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#1F7A7A"/>
+<text x="970" y="377" font-size="14" font-weight="700" fill="#ffffff">face_profiles</text>
+<text x="968" y="402" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1012" y="402" font-size="12.5" font-weight="700" fill="#111">profile_id</text>
+<text x="1262" y="402" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="961" y="408" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="423" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1012" y="423" font-size="12.5" font-weight="400" fill="#111">student_id</text>
+<text x="1262" y="423" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="968" y="444" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="444" font-size="12.5" font-weight="400" fill="#111">qdrant_point_id</text>
+<text x="1262" y="444" font-size="11.5" text-anchor="end" fill="#444">uuid NN</text>
+<rect x="961" y="450" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="465" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="465" font-size="12.5" font-weight="400" fill="#111">enrolled_at</text>
+<text x="1262" y="465" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<rect x="960" y="511" width="310" height="183" rx="5" fill="#ffffff" stroke="#1F7A7A" stroke-width="1.6"/>
+<path d="M960,516 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#1F7A7A"/>
+<text x="970" y="531" font-size="14" font-weight="700" fill="#ffffff">face_events</text>
+<text x="968" y="556" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1012" y="556" font-size="12.5" font-weight="700" fill="#111">event_id</text>
+<text x="1262" y="556" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="961" y="562" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="577" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1012" y="577" font-size="12.5" font-weight="400" fill="#111">camera_id</text>
+<text x="1262" y="577" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="968" y="598" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1012" y="598" font-size="12.5" font-weight="400" fill="#111">student_id</text>
+<text x="1262" y="598" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="961" y="604" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="619" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="619" font-size="12.5" font-weight="400" fill="#111">confidence</text>
+<text x="1262" y="619" font-size="11.5" text-anchor="end" fill="#444">numeric(4,3)</text>
+<text x="968" y="640" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="640" font-size="12.5" font-weight="400" fill="#111">outcome</text>
+<text x="1262" y="640" font-size="11.5" text-anchor="end" fill="#444">varchar(20) NN</text>
+<rect x="961" y="646" width="308" height="21" fill="#f3f5f8"/>
+<text x="968" y="661" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1012" y="661" font-size="12.5" font-weight="400" fill="#111">event_time</text>
+<text x="1262" y="661" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<text x="968" y="682" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1012" y="682" font-size="12.5" font-weight="400" fill="#111">reviewed_by</text>
+<text x="1262" y="682" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1420" y="70" width="310" height="141" rx="5" fill="#ffffff" stroke="#B7692B" stroke-width="1.6"/>
+<path d="M1420,75 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#B7692B"/>
+<text x="1430" y="90" font-size="14" font-weight="700" fill="#ffffff">attendance_sessions</text>
+<text x="1428" y="115" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1472" y="115" font-size="12.5" font-weight="700" fill="#111">session_id</text>
+<text x="1722" y="115" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1421" y="121" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="136" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1472" y="136" font-size="12.5" font-weight="400" fill="#111">hostel_id</text>
+<text x="1722" y="136" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="1428" y="157" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="157" font-size="12.5" font-weight="400" fill="#111">session_date</text>
+<text x="1722" y="157" font-size="11.5" text-anchor="end" fill="#444">date NN</text>
+<rect x="1421" y="163" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="178" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="178" font-size="12.5" font-weight="400" fill="#111">start_time</text>
+<text x="1722" y="178" font-size="11.5" text-anchor="end" fill="#444">time NN</text>
+<text x="1428" y="199" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="199" font-size="12.5" font-weight="400" fill="#111">end_time</text>
+<text x="1722" y="199" font-size="11.5" text-anchor="end" fill="#444">time NN</text>
+<rect x="1420" y="245" width="310" height="141" rx="5" fill="#ffffff" stroke="#B7692B" stroke-width="1.6"/>
+<path d="M1420,250 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#B7692B"/>
+<text x="1430" y="265" font-size="14" font-weight="700" fill="#ffffff">attendance</text>
+<text x="1428" y="290" font-size="11" font-weight="700" fill="#8a4b00">PK FK</text>
+<text x="1472" y="290" font-size="12.5" font-weight="700" fill="#111">session_id</text>
+<text x="1722" y="290" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1421" y="296" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="311" font-size="11" font-weight="700" fill="#8a4b00">PK FK</text>
+<text x="1472" y="311" font-size="12.5" font-weight="700" fill="#111">student_id</text>
+<text x="1722" y="311" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<text x="1428" y="332" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1472" y="332" font-size="12.5" font-weight="400" fill="#111">event_id</text>
+<text x="1722" y="332" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1421" y="338" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="353" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="353" font-size="12.5" font-weight="400" fill="#111">status</text>
+<text x="1722" y="353" font-size="11.5" text-anchor="end" fill="#444">varchar(20) NN</text>
+<text x="1428" y="374" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="374" font-size="12.5" font-weight="400" fill="#111">marked_at</text>
+<text x="1722" y="374" font-size="11.5" text-anchor="end" fill="#444">timestamp</text>
+<rect x="1420" y="420" width="310" height="162" rx="5" fill="#ffffff" stroke="#B7692B" stroke-width="1.6"/>
+<path d="M1420,425 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#B7692B"/>
+<text x="1430" y="440" font-size="14" font-weight="700" fill="#ffffff">entry_exit_log</text>
+<text x="1428" y="465" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1472" y="465" font-size="12.5" font-weight="700" fill="#111">log_id</text>
+<text x="1722" y="465" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1421" y="471" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="486" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1472" y="486" font-size="12.5" font-weight="400" fill="#111">student_id</text>
+<text x="1722" y="486" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="1428" y="507" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1472" y="507" font-size="12.5" font-weight="400" fill="#111">gate_id</text>
+<text x="1722" y="507" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<rect x="1421" y="513" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="528" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1472" y="528" font-size="12.5" font-weight="400" fill="#111">event_id</text>
+<text x="1722" y="528" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<text x="1428" y="549" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="549" font-size="12.5" font-weight="400" fill="#111">direction</text>
+<text x="1722" y="549" font-size="11.5" text-anchor="end" fill="#444">varchar(3) NN</text>
+<rect x="1421" y="555" width="308" height="21" fill="#f3f5f8"/>
+<text x="1428" y="570" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1472" y="570" font-size="12.5" font-weight="400" fill="#111">event_time</text>
+<text x="1722" y="570" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<rect x="1880" y="70" width="310" height="225" rx="5" fill="#ffffff" stroke="#B7692B" stroke-width="1.6"/>
+<path d="M1880,75 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#B7692B"/>
+<text x="1890" y="90" font-size="14" font-weight="700" fill="#ffffff">leave_requests</text>
+<text x="1888" y="115" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1932" y="115" font-size="12.5" font-weight="700" fill="#111">leave_id</text>
+<text x="2182" y="115" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1881" y="121" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="136" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1932" y="136" font-size="12.5" font-weight="400" fill="#111">student_id</text>
+<text x="2182" y="136" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="1888" y="157" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="157" font-size="12.5" font-weight="400" fill="#111">start_date</text>
+<text x="2182" y="157" font-size="11.5" text-anchor="end" fill="#444">date NN</text>
+<rect x="1881" y="163" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="178" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="178" font-size="12.5" font-weight="400" fill="#111">end_date</text>
+<text x="2182" y="178" font-size="11.5" text-anchor="end" fill="#444">date NN</text>
+<text x="1888" y="199" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="199" font-size="12.5" font-weight="400" fill="#111">reason</text>
+<text x="2182" y="199" font-size="11.5" text-anchor="end" fill="#444">text</text>
+<rect x="1881" y="205" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="220" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="220" font-size="12.5" font-weight="400" fill="#111">status</text>
+<text x="2182" y="220" font-size="11.5" text-anchor="end" fill="#444">varchar(15) NN</text>
+<text x="1888" y="241" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1932" y="241" font-size="12.5" font-weight="400" fill="#111">decided_by</text>
+<text x="2182" y="241" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1881" y="247" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="262" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="262" font-size="12.5" font-weight="400" fill="#111">decided_at</text>
+<text x="2182" y="262" font-size="11.5" text-anchor="end" fill="#444">timestamp</text>
+<text x="1888" y="283" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="283" font-size="12.5" font-weight="400" fill="#111">reason_tsv</text>
+<text x="2182" y="283" font-size="11.5" text-anchor="end" fill="#444">tsvector</text>
+<rect x="1880" y="329" width="310" height="267" rx="5" fill="#ffffff" stroke="#A33A3A" stroke-width="1.6"/>
+<path d="M1880,334 a5,5 0 0 1 5,-5 h300 a5,5 0 0 1 5,5 v25 h-310 z" fill="#A33A3A"/>
+<text x="1890" y="349" font-size="14" font-weight="700" fill="#ffffff">violations</text>
+<text x="1888" y="374" font-size="11" font-weight="700" fill="#8a4b00">PK</text>
+<text x="1932" y="374" font-size="12.5" font-weight="700" fill="#111">violation_id</text>
+<text x="2182" y="374" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1881" y="380" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="395" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1932" y="395" font-size="12.5" font-weight="400" fill="#111">student_id</text>
+<text x="2182" y="395" font-size="11.5" text-anchor="end" fill="#444">int NN</text>
+<text x="1888" y="416" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1932" y="416" font-size="12.5" font-weight="400" fill="#111">log_id</text>
+<text x="2182" y="416" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1881" y="422" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="437" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1932" y="437" font-size="12.5" font-weight="400" fill="#111">session_id</text>
+<text x="2182" y="437" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<text x="1888" y="458" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="458" font-size="12.5" font-weight="400" fill="#111">type</text>
+<text x="2182" y="458" font-size="11.5" text-anchor="end" fill="#444">varchar(30) NN</text>
+<rect x="1881" y="464" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="479" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="479" font-size="12.5" font-weight="400" fill="#111">details</text>
+<text x="2182" y="479" font-size="11.5" text-anchor="end" fill="#444">text</text>
+<text x="1888" y="500" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="500" font-size="12.5" font-weight="400" fill="#111">raised_at</text>
+<text x="2182" y="500" font-size="11.5" text-anchor="end" fill="#444">timestamp NN</text>
+<rect x="1881" y="506" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="521" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="521" font-size="12.5" font-weight="400" fill="#111">status</text>
+<text x="2182" y="521" font-size="11.5" text-anchor="end" fill="#444">varchar(15) NN</text>
+<text x="1888" y="542" font-size="11" font-weight="700" fill="#8a4b00">FK</text>
+<text x="1932" y="542" font-size="12.5" font-weight="400" fill="#111">resolved_by</text>
+<text x="2182" y="542" font-size="11.5" text-anchor="end" fill="#444">int</text>
+<rect x="1881" y="548" width="308" height="21" fill="#f3f5f8"/>
+<text x="1888" y="563" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="563" font-size="12.5" font-weight="400" fill="#111">resolved_at</text>
+<text x="2182" y="563" font-size="11.5" text-anchor="end" fill="#444">timestamp</text>
+<text x="1888" y="584" font-size="11" font-weight="700" fill="#8a4b00"></text>
+<text x="1932" y="584" font-size="12.5" font-weight="400" fill="#111">details_tsv</text>
+<text x="2182" y="584" font-size="11.5" text-anchor="end" fill="#444">tsvector</text>
+<text x="40" y="852" font-size="12.5" fill="#222">PK = primary key, FK = part of a foreign key, NN = NOT NULL. A line joins a foreign key (crow&#8217;s foot = many side) to the key it references (double bar = one side). Colours: blue people, green hostel, teal faces, orange activity, red violations, grey bookkeeping.</text>
+<text x="40" y="870" font-size="12.5" fill="#222">Lines pass behind boxes that lie between two tables. Delete rules: student_parent, face_profiles and b_consents cascade from students; every other foreign key is NO ACTION. See 03-relational-model.md.</text>
+</svg>
