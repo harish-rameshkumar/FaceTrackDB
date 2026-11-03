@@ -504,3 +504,42 @@ The remaining rows are the six sample students' own data from `db/seed.sql`. `fa
 - Review "Reject" on a scan linked to attendance returns 409 (existing limitation); generated scans are arranged so the queue does not contain such events.
 - "Cancelled by student" leave cannot be shown: the app deletes a cancelled request.
 - The generated history is attached to every student present, including the sample ones from `db/seed.sql`; the reset removes it again.
+
+---
+
+# Test results: closing the DBMS gaps (final stage)
+
+Run on a scratch PostgreSQL 16.15 (port 5436, project `finalgaps`) and a second Qdrant 1.19.2 (port 6336), never the real ones. The web app was started with `APP_DATABASE_URL` as the non-superuser login role `ft_app`; the test scripts used the owner connection for their own checks. The embedder ran on port 8002 from the existing image with the existing model volume mounted read-only; the real-photo set for `test:faces` was regenerated from the six faces of InsightFace's own sample image (augmented copies, as in the earlier stages).
+
+| Check | Result (previous stage in brackets) |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npx eslint --max-warnings=0 .` | zero warnings |
+| `npm run build` | compiled |
+| `db/test_cases.sql` (fresh, seed-only database) | 98 / 98 (98) |
+| `db/b_register_tests.sql` | 26 / 26 (26) |
+| `db/b_reports_tests.sql` | 16 / 16 (16) |
+| `db/b_demo_tests.sql` | 10 / 10 (10) |
+| `db/b_queries_tests.sql` (new, recursive query) | 6 / 6 |
+| `db/rbac_tests.sql` (new, database roles and row-level security) | 76 / 76 |
+| `npm run test:match`, cooldown 3 | 38 / 38 (37) |
+| `npm run test:match`, cooldown 0 | 35 / 35 (34) |
+| `npm run test:register` | 38 / 38 (31), with and without demo data |
+| `npm run test:hardening` | 30 / 30 (30), one expectation changed, see below |
+| `npm run test:reports` (`EXPECT_HISTORY_NOTE=1` after a seed) | 14 / 14 (14) |
+| `npm run test:demo` (no demo data at the start) | 42 / 42 (42) |
+| `npm run test:faces` (real photos through the HTTP API) | 13 / 13 (13) |
+
+## Which database state each suite needs
+See the table in the README ("Which database state each test needs"). Short version: `db/test_cases.sql` needs a fresh seed-only database (on a demo-seeded one 13 of its 98 checks fail for data reasons); `db/b_demo_tests.sql` and `test:demo` need a database with no demo data; the other SQL tests build their own fixture; `test:reports` needs `EXPECT_HISTORY_NOTE=1` after `demo:seed` and `0` without it.
+
+## What changed in the tests
+* **`db/b_queries_tests.sql` (new):** known absences in a rolled-back fixture check every run of `v_absence_runs` (the `WITH RECURSIVE` view), that a day without a roll call breaks a run, that a never-absent student has no run, and the longest-run query.
+* **`test:match` (+1 each) and `test:register` (+7):** a deactivated face sample is ignored by the gate search and the duplicate-face guard and is restored when reactivated; read (`GET /api/faces/[id]`), update (`PATCH` active true/false changes the Qdrant payload and keeps `student_id` and `face_profile_id`), delete (row and point) and list of face samples, with 401/403 for anonymous, student and warden, and 400/404 for bad input.
+* **`db/rbac_tests.sql` (new, 76 checks):** per role what is allowed and what fails with `permission denied` (SQLSTATE 42501, which is also what a row-level-security violation raises), the row-level rules (a student sees only their own leave, violations, attendance and parents; a parent only the linked child's; no user id set means no rows), that `ft_app` is neither superuser nor `BYPASSRLS`, and that nothing is readable by `PUBLIC`.
+* **`test:hardening`, one expectation changed on purpose:** "a parent decides another parent's ward's leave" used to answer HTTP 403 (FT033, "you are not a parent of this student"). Because the role `ft_parent` now cannot see another family's request at all (row-level security), the answer is HTTP 404 (FT031, "Leave request not found"), which also no longer confirms that the id exists. The count stays 30 / 30.
+
+## Not verified here
+* Only the student, parent, violation and leave routes run through `withRole` (database role switch) end to end. The staff pages and routes, the gate scan, registration/deletion/enrolment and login run as `ft_app`; their `ft_warden`/`ft_security`/`ft_admin` grants are tested in `db/rbac_tests.sql` with representative statements, not by driving every route through the role switch.
+* The camera pages and a real webcam; accuracy on real people.
+* The real database and the real Docker project were not touched.
