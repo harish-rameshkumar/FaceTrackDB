@@ -32,6 +32,7 @@ run db/b_search.sql
 run db/b_register.sql
 run db/b_demo.sql
 run db/b_reports.sql
+run db/migrations/004_rbac.sql      # again: the b_*.sql objects now exist, so they get their grants (idempotent)
 if [ "${1:-}" = "--demo" ]; then
   run db/b_explain_demo.sql
 fi
