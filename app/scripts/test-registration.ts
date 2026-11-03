@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPool } from "../lib/db";
-import { enrolEmbeddings } from "../lib/faces";
+import { enrolEmbeddings, listSamples } from "../lib/faces";
 import { COLLECTION, getQdrant } from "../lib/qdrant";
 import { assertTestEnvironment, randomEmbedding } from "./synthetic";
 
@@ -160,6 +160,46 @@ async function main() {
     record("Shared parent kept while another ward remains", "200, parent login still exists", `${del2.status} parent users=${paStill}`, del2.status === 200 && paStill === 1);
     const del404 = await api("DELETE", "/api/admin/students/99999", admin);
     record("Delete unknown student", "404", `${del404.status}`, del404.status === 404);
+
+    // ---- vector store: read, update, delete one face sample (admin only) ----
+    const r7 = await api("POST", "/api/admin/students", admin, student("s7f", "T-S7F", [parent("pf", "father")]));
+    const sid7: number = r7.json.student_id;
+    if (sid7) createdStudents.push(sid7);
+    const prof7 = await enrolEmbeddings(sid7, [randomEmbedding(780001), randomEmbedding(780002), randomEmbedding(780003)]);
+    const [p1, p2, p3] = prof7.map((p) => p.faceProfileId);
+    const rd = await api("GET", `/api/faces/${p1}`, admin);
+    const payloadKeys = Object.keys(rd.json.sample?.payload ?? {}).sort().join(",");
+    record("READ a face sample by id (admin)", "200; row + Qdrant payload {active, face_profile_id, student_id}, active=true, no vector in the response",
+      `${rd.status} payload=${payloadKeys} active=${rd.json.sample?.active} vectorInBody=${/"vector"/.test(rd.text)}`,
+      rd.status === 200 && payloadKeys === "active,face_profile_id,student_id" && rd.json.sample.active === true && rd.json.sample.studentId === sid7 && !/"vector"/.test(rd.text));
+    const denied = [] as string[];
+    for (const [who, c, want] of [["warden", warden, 403], ["student", seededStudent, 403], ["anonymous", null, 401]] as const) {
+      const a = await api("GET", `/api/faces/${p1}`, c), b = await api("PATCH", `/api/faces/${p1}`, c, { active: false });
+      const d = await api("DELETE", `/api/faces/${p3}`, c), l = await api("GET", `/api/admin/students/${sid7}/faces`, c);
+      denied.push(`${who}:${a.status}/${b.status}/${d.status}/${l.status}`);
+      if (![a.status, b.status, d.status, l.status].every((x) => x === want)) denied.push("WRONG");
+    }
+    record("Face sample routes are admin only", "GET, PATCH, DELETE and the list: warden 403, student 403, anonymous 401", denied.join(" "), !denied.includes("WRONG"));
+    const stillThere = Number((await pool.query("SELECT count(*) AS n FROM face_profiles WHERE student_id = $1", [sid7])).rows[0].n);
+    const off = await api("PATCH", `/api/faces/${p1}`, admin, { active: false });
+    const qOff = (await getQdrant().retrieve(COLLECTION, { ids: [prof7[0].qdrantPointId], with_payload: true })).at(0)?.payload;
+    record("UPDATE: deactivate a sample (payload)", "200; Qdrant payload active=false, student_id and face_profile_id kept; the row is still there",
+      `${off.status} active=${off.json.sample?.active} payload=${JSON.stringify(qOff)} rows=${stillThere}`,
+      off.status === 200 && off.json.sample.active === false && qOff?.active === false && qOff?.student_id === sid7 && qOff?.face_profile_id === p1 && stillThere === 3);
+    const listed = await api("GET", `/api/admin/students/${sid7}/faces`, admin);
+    record("List a student's samples shows the flag", "3 samples; only #1 inactive", `${listed.status} ${(listed.json.samples ?? []).map((x: Json) => `${x.faceProfileId}:${x.active}`).join(" ")}`,
+      listed.status === 200 && listed.json.samples?.length === 3 && listed.json.samples.filter((x: Json) => !x.active).length === 1 && listed.json.samples.find((x: Json) => !x.active)?.faceProfileId === p1);
+    const on = await api("PATCH", `/api/faces/${p1}`, admin, { active: true });
+    record("UPDATE: reactivate the sample", "200; active=true again", `${on.status} active=${on.json.sample?.active}`, on.status === 200 && on.json.sample.active === true);
+    const badBodies = await Promise.all([api("PATCH", `/api/faces/${p1}`, admin, { active: "no" }), api("PATCH", `/api/faces/${p1}`, admin, {}), api("PATCH", "/api/faces/abc", admin, { active: true }), api("PATCH", "/api/faces/99999999", admin, { active: true }), api("GET", "/api/faces/99999999", admin)]);
+    record("Face sample routes validate input", "400 non-boolean, 400 missing, 400 bad id, 404 unknown (PATCH), 404 unknown (GET)", badBodies.map((x) => x.status).join(" "), badBodies.map((x) => x.status).join(" ") === "400 400 400 404 404");
+    const del = await api("DELETE", `/api/faces/${p2}`, admin);
+    const pointGone = (await getQdrant().retrieve(COLLECTION, { ids: [prof7[1].qdrantPointId] })).length;
+    const rowGone = Number((await pool.query("SELECT count(*) AS n FROM face_profiles WHERE profile_id = $1", [p2])).rows[0].n);
+    const delAgain = await api("DELETE", `/api/faces/${p2}`, admin);
+    record("DELETE one sample (row and Qdrant point)", "200; row and point gone; the other two remain; a second delete is 404",
+      `${del.status} row=${rowGone} point=${pointGone} left=${(await listSamples(sid7)).length} again=${delAgain.status}`,
+      del.status === 200 && rowGone === 0 && pointGone === 0 && (await listSamples(sid7)).length === 2 && delAgain.status === 404);
 
     // ---- password change ----
     const bad = await api("POST", "/api/account/password", ls.cookie, { current: "wrong-password", next: "BrandNewPw-123" });

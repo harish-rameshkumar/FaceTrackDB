@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { getThresholds } from "./matching";
-import { COLLECTION, getQdrant } from "./qdrant";
+import { COLLECTION, getQdrant, NOT_DEACTIVATED } from "./qdrant";
 import { toEmbedding } from "./vectors";
 
 export class FaceError extends Error {
@@ -32,7 +32,7 @@ export async function findDuplicateFace(
       query: embedding,
       limit: 1,
       with_payload: true,
-      filter: { must_not: [{ key: "student_id", match: { value: studentId } }] },
+      filter: { must_not: [{ key: "student_id", match: { value: studentId } }, NOT_DEACTIVATED] },
     });
     const hit = points[0];
     if (hit && hit.score >= reviewMin && (!worst || hit.score > worst.similarity)) {
@@ -84,7 +84,7 @@ export async function enrolEmbeddings(studentId: number, embeddings: unknown[]):
       points: created.map((p, i) => ({
         id: p.qdrantPointId,
         vector: raw[i],
-        payload: { student_id: studentId, face_profile_id: p.faceProfileId },
+        payload: { student_id: studentId, face_profile_id: p.faceProfileId, active: true },
       })),
     });
     pointsWritten = true;
@@ -128,4 +128,61 @@ export async function deleteProfile(faceProfileId: number): Promise<boolean> {
   } finally {
     client.release();
   }
+}
+
+export interface FaceSample {
+  faceProfileId: number;
+  studentId: number;
+  qdrantPointId: string;
+  enrolledAt: string;
+  /** false when an admin deactivated the sample: matching ignores it. A point with no `active` key counts as active. */
+  active: boolean;
+  /** payload as stored in Qdrant (student_id, face_profile_id, active); the vector itself is never returned */
+  payload: Record<string, unknown> | null;
+}
+
+async function activeOf(pointIds: string[]): Promise<Map<string, { active: boolean; payload: Record<string, unknown> | null }>> {
+  const out = new Map<string, { active: boolean; payload: Record<string, unknown> | null }>();
+  if (pointIds.length === 0) return out;
+  const found = await getQdrant().retrieve(COLLECTION, { ids: pointIds, with_payload: true, with_vector: false });
+  for (const pt of found) out.set(String(pt.id), { active: pt.payload?.active !== false, payload: (pt.payload as Record<string, unknown>) ?? null });
+  return out;
+}
+
+/** READ: one face sample, from PostgreSQL (who it belongs to) and Qdrant (its payload, by point id). Null if the profile does not exist. */
+export async function getSample(faceProfileId: number): Promise<FaceSample | null> {
+  const { rows } = await getPool().query<{ profile_id: number; student_id: number; qdrant_point_id: string; enrolled_at: string }>(
+    "SELECT profile_id, student_id, qdrant_point_id, enrolled_at FROM face_profiles WHERE profile_id = $1",
+    [faceProfileId],
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  const q = (await activeOf([r.qdrant_point_id])).get(r.qdrant_point_id);
+  // a row whose point is missing in Qdrant is reported as inactive with no payload (it cannot be matched)
+  return { faceProfileId: r.profile_id, studentId: r.student_id, qdrantPointId: r.qdrant_point_id, enrolledAt: r.enrolled_at, active: q?.active ?? false, payload: q?.payload ?? null };
+}
+
+/** READ: every sample of one student, with its active flag. */
+export async function listSamples(studentId: number): Promise<FaceSample[]> {
+  const { rows } = await getPool().query<{ profile_id: number; student_id: number; qdrant_point_id: string; enrolled_at: string }>(
+    "SELECT profile_id, student_id, qdrant_point_id, enrolled_at FROM face_profiles WHERE student_id = $1 ORDER BY profile_id",
+    [studentId],
+  );
+  const state = await activeOf(rows.map((r) => r.qdrant_point_id));
+  return rows.map((r) => {
+    const q = state.get(r.qdrant_point_id);
+    return { faceProfileId: r.profile_id, studentId: r.student_id, qdrantPointId: r.qdrant_point_id, enrolledAt: r.enrolled_at, active: q?.active ?? false, payload: q?.payload ?? null };
+  });
+}
+
+/**
+ * UPDATE: deactivate or reactivate a sample by changing the `active` key of its Qdrant payload
+ * (set_payload merges, so student_id and face_profile_id are kept). Returns the new state, or null
+ * if the profile does not exist. The vector is never touched, so reactivating restores it exactly.
+ */
+export async function setSampleActive(faceProfileId: number, active: boolean): Promise<FaceSample | null> {
+  const { rows } = await getPool().query<{ qdrant_point_id: string }>("SELECT qdrant_point_id FROM face_profiles WHERE profile_id = $1", [faceProfileId]);
+  if (rows.length === 0) return null;
+  await getQdrant().setPayload(COLLECTION, { payload: { active }, points: [rows[0].qdrant_point_id], wait: true });
+  return getSample(faceProfileId);
 }

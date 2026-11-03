@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
+import { FaceSamples } from "./FaceSamples";
 
 type Dialog = null | "delete" | "signout";
 
@@ -47,6 +48,7 @@ export function StudentActions({ studentId, userId, name, samples }: { studentId
       <Link href={`/admin/students/${studentId}/enrol`} className="text-primary underline">{samples > 0 ? "Re-enrol" : "Enrol face"}</Link>
       <Button variant="link" onClick={() => openDialog("signout")}>Sign out everywhere</Button>
       <Button variant="link" className="!text-danger" onClick={() => openDialog("delete")}>Delete</Button>
+      {samples > 0 && <FaceSamples studentId={studentId} onChanged={() => router.refresh()} />}
       {signedOut && <span className="text-xs text-success" role="status">{signedOut}</span>}
 
       <ConfirmDialog

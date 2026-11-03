@@ -24,8 +24,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPool } from "../lib/db";
-import { enrolEmbeddings, deleteProfile, FaceError } from "../lib/faces";
-import { classifyFrame, combineFrames, getScanCooldownSeconds, getThresholds, rankStudents } from "../lib/matching";
+import { enrolEmbeddings, deleteProfile, FaceError, findDuplicateFace, listSamples, setSampleActive } from "../lib/faces";
+import { classifyFrame, combineFrames, getScanCooldownSeconds, getThresholds, rankStudents, searchFrame } from "../lib/matching";
 import { checkQuality, getQualityLimits } from "../lib/quality";
 import { COLLECTION } from "../lib/qdrant";
 import { processScan, type ScanInput } from "../lib/scan";
@@ -154,8 +154,31 @@ function unitTests() {
     quality.join(",") === "no_face,multiple_faces,low_score,too_small,too_blurry,ok");
 }
 
+// A deactivated sample (Qdrant payload active=false) is ignored by the gate search and by the duplicate-face guard;
+// reactivating it restores it. Student 1 and student 2 are two of the synthetic students made by seed:faces.
+async function deactivatedSamples() {
+  const base = baseEmbedding(1);
+  const samples = await listSamples(1);
+  const top = async () => (await searchFrame(base)).map((r) => r.studentId);
+  const dup = async () => (await findDuplicateFace(2, [base]))?.studentId ?? null;
+  try {
+    const before = { top: await top(), dup: await dup() };
+    for (const sm of samples) await setSampleActive(sm.faceProfileId, false);
+    const off = { top: await top(), dup: await dup(), listed: (await listSamples(1)).map((x) => x.active).join(",") };
+    for (const sm of samples) await setSampleActive(sm.faceProfileId, true);
+    const on = { top: await top(), dup: await dup() };
+    record("Deactivated samples are ignored", "student 1's samples deactivated: gate search and duplicate guard no longer see student 1; reactivated: they do again",
+      "before: found, dup=1; off: not found, dup=null, all false; on: found, dup=1",
+      `before ${before.top.includes(1)} dup=${before.dup}; off ${off.top.includes(1)} dup=${off.dup} [${off.listed}]; on ${on.top.includes(1)} dup=${on.dup}`,
+      samples.length > 0 && before.top[0] === 1 && before.dup === 1 && !off.top.includes(1) && off.dup === null && off.listed === samples.map(() => "false").join(",") && on.top[0] === 1 && on.dup === 1);
+  } finally {
+    for (const sm of samples) await setSampleActive(sm.faceProfileId, true);
+  }
+}
+
 async function main() {
   unitTests();
+  await deactivatedSamples();
 
   const maxEvent = await scalar("SELECT COALESCE(max(event_id),0) FROM face_events");
   const maxLog = await scalar("SELECT COALESCE(max(log_id),0) FROM entry_exit_log");
